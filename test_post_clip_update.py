@@ -296,7 +296,48 @@ def save_voxel_images(net, latent_flow_model, clip_model, args, total_text_query
                 voxel_save(voxel_in, None, out_file=out_file)
                 voxel_num = voxel_num + 1
             
+def save_voxel_images_lerp_2(net, latent_flow_model, clip_model, args, total_text_query, save_path, resolution=64, num_figs_per_query=5):
+    net.eval()
+    latent_flow_model.eval()
+    clip_model.eval()
+    count = 1
+    num_figs = num_figs_per_query
+    with torch.no_grad():
+        voxel_size = resolution
+        shape = (voxel_size, voxel_size, voxel_size)
+        p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+        query_points = p.expand(num_figs, *p.size())
+        assert(len(total_text_query) == 2)
+        embs = []
+        texts = []
+        for text_in in tqdm(total_text_query):
+            # print(text_in)
+            ##########
+            text = clip.tokenize([text_in]).to(args.device)
+            text_features = clip_model.encode_text(text)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            ###########
+            torch.manual_seed(5)
+            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+            noise = torch.clip(noise, min=-1, max=1)
+            noise = torch.cat([mean_shape, noise], dim=0)
+            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
+            embs.append(decoder_embs)
+            texts.append(text_in)
 
+        inter = 0.0
+        for idx in range(51):
+            out = net.decoding(
+            torch.lerp(embs[0], embs[1], inter), query_points)
+            voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+            
+            voxel_num = 0
+            for voxel_in in voxels_out:
+                out_file = os.path.join(save_path, texts[0] + "_" + texts[1] + "_" + str(voxel_num) + "_" + str(idx) + ".png")
+                voxel_save(voxel_in, None, out_file=out_file)
+                voxel_num = voxel_num + 1
+            inter += 0.02
 
 ##################################### Main and Parser stuff #################################################3
 
@@ -449,7 +490,8 @@ def main():
         if args.text_query is None:
             logging.info("Please add text query using text_query args argument")
         else: 
-            save_voxel_images(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
+            # save_voxel_images(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
+            save_voxel_images_lerp_2(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
         
 if __name__ == "__main__":
     main()  
