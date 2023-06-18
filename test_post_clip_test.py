@@ -420,7 +420,7 @@ def main():
     helper.set_seed(manualSeed)
 
     ### Dataloader stuff 
-    if args.experiment_mode not in ["save_voxel_on_query", "cls_cal_single", "cls_cal_category"]:
+    if args.experiment_mode not in ["save_voxel_on_query", "cls_cal_single", "cls_cal_category", "gen_embeddings_on_query"]:
         logging.info("#############################")
         train_dataloader, total_shapes  = get_dataloader(args, split="train")
         args.total_shapes = total_shapes
@@ -546,12 +546,13 @@ def main():
             logging.info("Please add text query using text_query args argument")
         else: 
             embs_gen = gen_embeddings(latent_flow_network, clip_model, args, args.text_query, args.output_dir, num_figs_per_query=1)
-        while (True):
-            xval = float(input("xval: "))
-            yval = float(input("yval: "))
-            if (xval < 0 or yval < 0):
-                break
-            embs2voxel_lerp4(net, args, embs_gen, save_path, xval, yval, resolution=64, num_figs_per_query=1)
+        if (len(embs_gen) == 4):
+            while (True):
+                xval = float(input("xval: "))
+                yval = float(input("yval: "))
+                if (xval < 0 or yval < 0):
+                    break
+                embs2voxel_lerp4(net, args, embs_gen, save_path, xval, yval, resolution=64, num_figs_per_query=1)
 
         
 if __name__ == "__main__":
