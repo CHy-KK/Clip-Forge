@@ -328,8 +328,7 @@ def save_voxel_images_lerp_2(net, latent_flow_model, clip_model, args, total_tex
 
         inter = 0.0
         for idx in range(51):
-            out = net.decoding(
-            torch.lerp(embs[0], embs[1], inter), query_points)
+            out = net.decoding(torch.lerp(embs[0], embs[1], inter), query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
             
             voxel_num = 0
@@ -338,6 +337,51 @@ def save_voxel_images_lerp_2(net, latent_flow_model, clip_model, args, total_tex
                 voxel_save(voxel_in, None, out_file=out_file)
                 voxel_num = voxel_num + 1
             inter += 0.02
+
+def gen_embeddings(latent_flow_model, clip_model, args, total_text_query, save_path, num_figs_per_query=5):
+    latent_flow_model.eval()
+    clip_model.eval()
+    count = 1
+    num_figs = num_figs_per_query
+    with torch.no_grad():
+        shape_embs = []
+        shape_embs_torch = []
+        for text_in in tqdm(total_text_query):
+            ##########
+            text = clip.tokenize([text_in]).to(args.device)
+            text_features = clip_model.encode_text(text)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            ###########
+            torch.manual_seed(5)
+            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+            noise = torch.clip(noise, min=-1, max=1)
+            noise = torch.cat([mean_shape, noise], dim=0)
+            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
+            shape_embs.append(decoder_embs.detach().cpu().numpy())
+            shape_embs_torch.append(decoder_embs)
+        np.save(save_path + '/shape_embs.npy', np.array(shape_embs))
+        return shape_embs_torch
+
+def embs2voxel_lerp4(net, args, total_embs, save_path, xval, yval, resolution=64, num_figs_per_query=5):
+    # total_embs的长度应小于4, index0-3分别代表: 左下, 右下, 左上, 右上
+    # xval, yval∈[0, 1], 代表横向和纵向插值
+    net.eval()
+    num_figs = num_figs_per_query
+    with torch.no_grad():
+        voxel_size = resolution
+        shape = (voxel_size, voxel_size, voxel_size)
+        p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+        query_points = p.expand(num_figs, *p.size())
+
+        # 这里暂时先用最简单的三次线性插值，即上下分别根据xval插值，然后上下合并yval插值
+        res_emb = torch.lerp(torch.lerp(total_embs[0], total_embs[1], xval), torch.lerp(total_embs[2], total_embs[3], xval), yval)
+        out = net.decoding(res_emb, query_points)
+        voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+        
+        for voxel_in in voxels_out:
+            out_file = os.path.join(save_path, str(xval) + "_" + str(yval)+ ".png")
+            voxel_save(voxel_in, None, out_file=out_file)
 
 ##################################### Main and Parser stuff #################################################3
 
@@ -367,9 +411,9 @@ def main():
     test_log_filename = osp.join(args.output_dir, 'test_log.txt')
     helper.create_dir(args.output_dir)
     helper.setup_logging(test_log_filename, args.log_level, 'w')
-    args.query_generate_dir =  osp.join(args.output_dir, 'query_generate_dir') + "/"                          
+    args.query_generate_dir =  osp.join(args.output_dir, 'query_generate_dir') + "/"                     
     helper.create_dir(args.query_generate_dir)
-    args.vis_gen_dir =  osp.join(args.output_dir, 'vis_gen_dir') + "/"                          
+    args.vis_gen_dir =  osp.join(args.output_dir, 'vis_gen_dir') + "/"                  # 保存生成图像         
     helper.create_dir(args.vis_gen_dir)
 
     manualSeed = args.seed_nf
@@ -492,6 +536,23 @@ def main():
         else: 
             # save_voxel_images(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
             save_voxel_images_lerp_2(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
+    elif args.experiment_mode == "gen_embeddings_on_query":
+        save_path = args.vis_gen_dir
+        if not os.path.exists(save_path):
+            os.makedirs(save_path) 
+        torch.multiprocessing.set_sharing_strategy('file_system')
+        embs_gen = []
+        if args.text_query is None:
+            logging.info("Please add text query using text_query args argument")
+        else: 
+            embs_gen = gen_embeddings(latent_flow_network, clip_model, args, args.text_query, args.output_dir, num_figs_per_query=1)
+        while (True):
+            xval = float(input("xval: "))
+            yval = float(input("yval: "))
+            if (xval < 0 or yval < 0):
+                break
+            embs2voxel_lerp4(net, args, embs_gen, save_path, xval, yval, resolution=64, num_figs_per_query=1)
+
         
 if __name__ == "__main__":
     main()  
