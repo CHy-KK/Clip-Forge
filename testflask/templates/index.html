@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Page</title>
+</head>
+<body>
+  <h1>My Page</h1>
+  <script>
+    const index = 10; // 假设需要获取下标为 10 的体素数据
+    const url = `/get_voxel_data/${index}`; // 构造请求 URL
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        // 处理返回的数据
+        console.log(data);
+      });
+  </script>
+</body>
+</html>
