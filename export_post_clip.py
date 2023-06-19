@@ -124,185 +124,10 @@ id_to_other_stuff = {
     
 }
 
-def generate_all_queries_2(prefix="a"):
-    
-    all_queries = []
-    all_labels = []
-    
-    for category_id in id_to_sub_category:
-        sub_category_queries = id_to_sub_category[category_id]
-        main_category = sub_category_queries[0]
-        
-        new_prefix = prefix
-        for shape_attributes_query in id_to_shape_attribute[category_id]:
-            if prefix == "a" and shape_attributes_query[0] in ["a", "e", "i", "o", "u"]:
-                new_prefix = "an"
-            elif prefix == "a":
-                new_prefix = "a"
-            
-            query = new_prefix + " " + shape_attributes_query + " " + main_category 
-            all_queries.append(query)
-            all_labels.append(id_to_label[category_id])
-            
-        for sub_category_query in sub_category_queries:
-            if prefix == "a" and sub_category_query[0] in ["a", "e", "i", "o", "u"]:
-                new_prefix = "an"
-            elif prefix == "a":
-                new_prefix = "a"
-                
-            query = new_prefix + " " + sub_category_query
-            all_queries.append(query)
-            all_labels.append(id_to_label[category_id])
-            
-        for other_query in id_to_other_stuff[category_id]:  
-            if prefix == "a" and other_query[0] in ["a", "e", "i", "o", "u"]:
-                new_prefix = "an"
-            elif prefix == "a":
-                new_prefix = "a"
-                
-            query = new_prefix + " " + other_query
-            all_queries.append(query)
-            all_labels.append(id_to_label[category_id])
-            
-                   
-    return all_queries, all_labels
 
 ###################################### Text Queries ###############################################
 
 
-def generate_voxel_32(net, latent_flow_model, clip_model, args, num_figs_per_query=5, prefix="a"):
-    net.eval()
-    latent_flow_model.eval()
-    clip_model.eval()
-    shape_vectors = []  # 创建一个空列表来保存形状向量
-    count = 1
-    num_figs = num_figs_per_query
-    with torch.no_grad():
-        voxel_size = 32
-        shape = (voxel_size, voxel_size, voxel_size)
-        p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
-        query_points = p.expand(num_figs, *p.size())
-        
-        generated_voxel_array = []
-        total_labels_array = []
-        
-        total_text_query, query_labels = generate_all_queries_2(prefix=prefix)
-        print(total_text_query)
-        
-        count = 0 
-        for  text_in in tqdm(total_text_query):
-            ##########
-            text = clip.tokenize([text_in]).to(args.device)
-            text_features = clip_model.encode_text(text)
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            ###########
-            label = query_labels[count]
-            
-            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
-            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
-            noise = torch.clip(noise, min=-1, max=1)
-            noise = torch.cat([mean_shape, noise], dim=0).float()
-            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1).float())
-            shape_vectors.append(decoder_embs.detach().cpu().numpy())  # 将形状向量添加到列表中
-            out = net.decoding(decoder_embs, query_points)
-            voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-            #print(voxels_out.shape)
-            generated_voxel_array.append(voxels_out)
-            total_labels_array.append(label)
-            count = count + 1
-            
-        generated_voxel_array = np.concatenate(generated_voxel_array)
-        total_labels_array = total_labels_array
-        np.save('./data/shape_vectors.npy', np.array(shape_vectors))
-        return generated_voxel_array, total_labels_array
-
-
-
-def get_true_voxels(test_dataloader, args):
-    voxel_array = []
-    for data in tqdm(test_dataloader):
-        data_input = data['voxels'].type(torch.FloatTensor).detach().cpu().numpy()
-        voxel_array.append(data_input)
-        #break
-    voxel_array = np.concatenate(voxel_array)    
-    return voxel_array
-
-def voxel_save(voxels, text_name, out_file=None, transpose=True, show=False):
-
-    # Use numpy
-    voxels = np.asarray(voxels)
-    # Create plot
-    #fig = plt.figure()
-    fig = plt.figure(figsize=(40,20))
-    
-    ax = fig.add_subplot(111, projection=Axes3D.name)
-    if transpose == True:
-        voxels = voxels.transpose(2, 0, 1)
-    #else:
-        #voxels = voxels.transpose(2, 0, 1)
-    
-
-    ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
-    ax.set_xlabel('Z')
-    ax.set_ylabel('X')
-    ax.set_zlabel('Y')
-    # Hide grid lines
-    plt.grid(False)
-    plt.axis('off')
-    
-    if text_name != None:
-        plt.title(text_name, {'fontsize':30}, y=0.15)
-    #plt.text(15, -0.01, "Correlation Graph between Citation & Favorite Count")
-
-    ax.view_init(elev=30, azim=45)
-
-    if out_file is not None:
-        plt.axis('off')
-        plt.savefig(out_file)
-    if show:
-        plt.show()
-    plt.close(fig)
-
-def save_voxel_images(net, latent_flow_model, clip_model, args, total_text_query, save_path, resolution=64, num_figs_per_query=5):
-    net.eval()
-    latent_flow_model.eval()
-    clip_model.eval()
-    count = 1
-    num_figs = num_figs_per_query
-    with torch.no_grad():
-        voxel_size = resolution
-        shape = (voxel_size, voxel_size, voxel_size)
-        p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
-        query_points = p.expand(num_figs, *p.size())
-                
-        for text_in in tqdm(total_text_query):
-            ##########
-            text = clip.tokenize([text_in]).to(args.device)
-            text_features = clip_model.encode_text(text)
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            ###########
-            torch.manual_seed(5)
-            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
-            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
-            noise = torch.clip(noise, min=-1, max=1)
-            noise = torch.cat([mean_shape, noise], dim=0)
-            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
-
-            out = net.decoding(decoder_embs, query_points)
-            voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-            
-            voxel_num = 0
-            for voxel_in in voxels_out:
-                print(type(voxel_in))
-                # print(voxel_in.size)
-                # print(np.size(voxel_in,0))
-                # print(np.size(voxel_in,1))
-                # np.set_printoptions(threshold=sys.maxsize)
-                # print(voxel_in)
-                # out_file = os.path.join(save_path, text_in + "_" + str(voxel_num) + ".png")
-                # voxel_save(voxel_in, None, out_file=out_file)
-                # voxel_num = voxel_num + 1
-            
 def save_voxel_images_lerp_2(net, latent_flow_model, clip_model, args, total_text_query, save_path, resolution=64, num_figs_per_query=5):
     net.eval()
     latent_flow_model.eval()
@@ -410,10 +235,14 @@ def get_local_parser_test(mode="args"):
         return args
     else:
         return parser
-    
-def main():
+
+def export_voxel():
     args = get_local_parser_test() 
+    print("################################################")
+    # for item in args:
+    #     print (item)
     print (args)
+    print("################################################")
     ### Directories for generating stuff and logs    cls_cal_category
     test_log_filename = osp.join(args.output_dir, 'test_log.txt')
     helper.create_dir(args.output_dir)
@@ -442,7 +271,6 @@ def main():
     args.device = device     
 
     ### Network stuff 
-    logging.info("#############################")
 
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
@@ -460,80 +288,8 @@ def main():
     checkpoint = torch.load(checkpoint_nf_path, map_location=args.device)
     latent_flow_network.load_state_dict(checkpoint['model'])
     latent_flow_network.eval()
-
-
-    logging.info("#############################")
-
-    logging.info("Conducting the experiment {}".format(args.experiment_mode))
-
-    if args.experiment_mode == "fid_cal":
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        generated_voxels, _ = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
-        true_voxels  = get_true_voxels(test_dataloader, args)
-        logging.info("Size of  generated {} and true voxel is {}".format(generated_voxels.shape, true_voxels.shape))
-
-        import classifier 
-        from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
-
-        cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
-        cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
-        cls.load_state_dict(cls_checkpoint['model'])
-        activations1, _ = classifier.get_activations(true_voxels, cls, args)
-        activations2, _ = classifier.get_activations(generated_voxels, cls, args)
-
-        logging.info("Size of activatation for true {} and generated voxel is {}".format(activations1.shape, activations2.shape))
-
-        mu1, sigma1 = calculate_activation_statistics(activations1)
-        mu2, sigma2 = calculate_activation_statistics(activations2)
-        fid_score = calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6)
-        logging.info("FID score is: {}".format(fid_score))
-
-    elif args.experiment_mode == "cls_cal_single":
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        generated_voxels, query_labels = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
-        logging.info("Size of  generated voxel is {} and label length {}".format(generated_voxels.shape, len(query_labels)))
-        
-        import classifier 
-        from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
-        from sklearn.metrics import accuracy_score
-        
-        cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
-        cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
-        cls.load_state_dict(cls_checkpoint['model'])
-
-        activations, pred_labels = classifier.get_activations(generated_voxels, cls, args)
-        logging.info("Size of  activations  is {} and pred labels is {}".format(activations.shape, pred_labels.shape))
-
-        acc = 100*accuracy_score(query_labels, pred_labels)
-        logging.info("Cls score is: {}".format(acc))    
-    elif args.experiment_mode == "cls_cal_category":
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        generated_voxels, query_labels = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
-     
-        logging.info("Size of  generated voxel is {} and label length {}".format(generated_voxels.shape, len(query_labels)))
-        
-        import classifier 
-        from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
-        from sklearn.metrics import accuracy_score
-        
-        cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
-        cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
-        cls.load_state_dict(cls_checkpoint['model'])
-
-        activations, pred_labels = classifier.get_activations(generated_voxels, cls, args)
-        logging.info("Size of  activations  is {} and pred labels is {}".format(activations.shape, pred_labels.shape))
-        
-        conf_matrix = confusion_matrix(query_labels, pred_labels)
-        count  = 0
-        for i in conf_matrix:
-            category_name =  label_to_category[count]
-            total_labels = query_labels.count(count)
-            acc = (conf_matrix[count,count]/ total_labels) *100
-            logging.info("Cls score for class {}, total labels {} is: {}".format(category_name, total_labels, acc))
-            count = count + 1
-        acc = 100*accuracy_score(query_labels, pred_labels)
-        logging.info("Cls score is: {}".format(acc))   
-    elif args.experiment_mode == "save_voxel_on_query":
+ 
+    if args.experiment_mode == "save_voxel_on_query":
         save_path = args.vis_gen_dir
         if not os.path.exists(save_path):
             os.makedirs(save_path) 
@@ -560,7 +316,3 @@ def main():
                 if (xval < 0 or yval < 0):
                     break
                 embs2voxel_lerp4(net, args, embs_gen, save_path, xval, yval, resolution=64, num_figs_per_query=1)
-
-        
-if __name__ == "__main__":
-    main()  

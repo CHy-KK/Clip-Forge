@@ -1,5 +1,1 @@
-2023-06-18 07:59:42,100 - INFO - #############################
-2023-06-18 07:59:44,179 - INFO - Loaded the autoencoder: ./exps/models/autoencoder/best_iou.pt
-2023-06-18 08:21:20,713 - INFO - Loaded the nf model: ./exps/models/prior/best.pt
-2023-06-18 08:21:20,757 - INFO - #############################
-2023-06-18 08:21:20,757 - INFO - Conducting the experiment save_voxel_on_query
+2023-06-19 09:38:13,347 - INFO - #############################
