@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Page</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+  <h1>My Page</h1>
+  <button onclick="sendList()">Send List</button>
+  <script>
+    function sendList() {
+      const mylist = ["plane", "car", "truck", "rocket"];
+      $.ajax({
+        url: '/get_embeddings',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(mylist),
+        success: function(data) {
+            var result = $('#result');
+            result.html('<ul>');
+            for (var i = 0; i < data.length; i++) {
+                result.append('<li>' + data[i] + '</li>');
+            }
+            result.append('</ul>');
+        }
+      });
+    }
+  </script>
+  <h1>END </h1>
+<!--   
+  <h1>My Page</h1>
+  <button onclick="sendList()">Send List</button>
+  <div id="result"></div>
+  <script>
+    function sendList() {
+      var my_list = ["plane", "car", "truck", "rocket"];
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function() {
+          if (this.readyState == 4 && this.status == 200) {
+              var data = JSON.parse(this.responseText);
+              var result = document.getElementById("result");
+              result.innerHTML = "<ul>";
+              for (var i = 0; i < data.length; i++) {
+                  result.innerHTML += "<li>" + data[i] + "</li>";
+              }
+              result.innerHTML += "</ul>";
+          }
+      };
+      xhr.open("POST", "/gen_embeddings", true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(JSON.stringify({'my_list': my_list}));
+    }
+  </script>
+  <h1>end</h1> -->
+</body>
+</html>
