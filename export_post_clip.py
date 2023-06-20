@@ -61,6 +61,7 @@ helper.set_seed(manualSeed)
 
 device, gpu_array = helper.get_device(args)
 args.device = device     
+count=1
 
 # net = None
 # latent_flow_model = None
@@ -113,32 +114,42 @@ args.device = device
 def index():
   return render_template('index.html')
 
-@app.route('/get_embeddings', methods=['GET', 'POST'])
-# def gen_embeddings(latent_flow_model, clip_model, total_text_query):
-def gen_embeddings():
+@app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
+def get_embeddings_by_text_query():
     total_text_query = request.json
-    print(total_text_query)
-    return jsonify(total_text_query)
-    # return render_template('index.html', textquery=total_text_query)
-    # with torch.no_grad():
-    #     shape_embs = []
-    #     shape_embs_torch = []
-    #     for text_in in tqdm(total_text_query):
-    #         ##########
-    #         text = clip.tokenize([text_in]).to(args.device)
-    #         text_features = clip_model.encode_text(text)
-    #         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-    #         ###########
-    #         torch.manual_seed(5)
-    #         mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
-    #         noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
-    #         noise = torch.clip(noise, min=-1, max=1)
-    #         noise = torch.cat([mean_shape, noise], dim=0)
-    #         decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
-    #         shape_embs.append(decoder_embs.detach().cpu().numpy())
-    #         shape_embs_torch.append(decoder_embs)
-    #     # np.save(save_path + '/shape_embs.npy', np.array(shape_embs))
-    #     return shape_embs_torch
+    shape_embs = []
+    shape_embs_torch = []
+    global count
+    if (total_text_query != None):
+        print(total_text_query)
+        with torch.no_grad():
+            num_figs = 1
+            for text_in in tqdm(total_text_query):
+                print (text_in)
+                ##########
+                text = clip.tokenize([text_in]).to(args.device)
+                text_features = clip_model.encode_text(text)
+                print('++++++++')
+                print (len(text_features))
+                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+                ###########
+                torch.manual_seed(5)
+                mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+                noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+                noise = torch.clip(noise, min=-1, max=1)
+                noise = torch.cat([mean_shape, noise], dim=0)
+                decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
+                shape_embs.append(decoder_embs.detach().cpu().numpy().tolist()[0])
+                shape_embs_torch.append(decoder_embs)
+    else:
+        print("no query")
+    return jsonify(shape_embs)
+
+@app.route('/get_voxel/<int:interpolation>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
+def get_voxel_interpolation(interpolation, xval, yval):
+    print(interpolation, xval, yval)
+    return ''
+
 
 # def embs2voxel_lerp4(net, args, total_embs, save_path, xval, yval, resolution=64, num_figs_per_query=5):
 #     # total_embs的长度应小于4, index0-3分别代表: 左下, 右下, 左上, 右上

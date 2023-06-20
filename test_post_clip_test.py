@@ -274,7 +274,9 @@ def save_voxel_images(net, latent_flow_model, clip_model, args, total_text_query
         shape = (voxel_size, voxel_size, voxel_size)
         p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
         query_points = p.expand(num_figs, *p.size())
-                
+        print("total_text_query is ======================")
+        print(total_text_query)
+        print("==========================================")
         for text_in in tqdm(total_text_query):
             ##########
             text = clip.tokenize([text_in]).to(args.device)
