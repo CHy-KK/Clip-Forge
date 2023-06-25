@@ -61,7 +61,6 @@ helper.set_seed(manualSeed)
 
 device, gpu_array = helper.get_device(args)
 args.device = device     
-count=1
 
 # net = None
 # latent_flow_model = None
@@ -72,7 +71,6 @@ count=1
 #     net.eval()
 #     latent_flow_model.eval()
 #     clip_model.eval()
-#     count = 1
 #     num_figs = num_figs_per_query
 #     with torch.no_grad():
 #         voxel_size = resolution
@@ -119,7 +117,6 @@ def get_embeddings_by_text_query():
     total_text_query = request.json
     shape_embs = []
     shape_embs_torch = []
-    global count
     if (total_text_query != None):
         print(total_text_query)
         with torch.no_grad():
@@ -148,6 +145,7 @@ def get_embeddings_by_text_query():
 @app.route('/get_voxel/<int:interpolation>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
 def get_voxel_interpolation(interpolation, xval, yval):
     print(interpolation, xval, yval)
+    
     return ''
 
 
