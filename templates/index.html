@@ -9,8 +9,8 @@
 <body>
   <h1>My Page</h1>
   <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>
-  <button onclick="input_voxel()">Upload Voxel</button>
-  <button onclick="get_voxel(0.5, 0, 0, 1, 2)">Get Voxel</button>
+  <button onclick="update_voxel()">Upload Voxel</button>
+  <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
   <script>
     function get_embeddings_by_text_query() {
       const mylist = ["plane", "car", "truck", "rocket"];
@@ -23,6 +23,31 @@
         success: function(data) {
             console.log("success get embedding");
             console.log(data);
+        }
+      });
+    }
+
+    function update_voxel() {
+      voxel_data = []
+      for (let i = 0; i < 64; i++) {
+        tmp1 = []
+        for (let j = 0; j < 64; j++) {
+          tmp2 = []
+          for (let k = 0; k < 64; k++) {
+            tmp2.push(Math.random() > 0.8)
+          }
+          tmp1.push(tmp2)
+        }
+        voxel_data.push(tmp1)
+      }
+      console.log(voxel_data)
+      $.ajax({
+        url: '/update_voxel',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(voxel_data),
+        success: function() {
+            console.log("success get embedding");
         }
       });
     }

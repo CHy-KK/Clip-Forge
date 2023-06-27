@@ -40,7 +40,7 @@ class RegexConverter(BaseConverter):
         # 将接收的第1个参数当作匹配规则进行保存
         self.regex = args[0]
 
-app.url_map.converter['re'] = RegexConverter
+app.url_map.converters['re'] = RegexConverter
 
 
 def get_local_parser_test(mode="args"):
@@ -129,7 +129,7 @@ def get_embeddings_by_text_query():
     total_text_query = request.json
     global shape_embs_torch
     shape_embs_torch = []
-    shape_embs = []
+    shape_embs = dict()
     clip_model.eval()
     latent_flow_model.eval()
     if (total_text_query != None):
@@ -148,17 +148,32 @@ def get_embeddings_by_text_query():
                 noise = torch.clip(noise, min=-1, max=1)
                 noise = torch.cat([mean_shape, noise], dim=0)
                 decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
-                shape_embs.append(decoder_embs.detach().cpu().numpy().tolist()[0])
+                # shape_embs.append(decoder_embs.detach().cpu().numpy().tolist()[0])
+                shape_embs[text_in] = decoder_embs.detach().cpu().numpy().tolist()[0]
                 shape_embs_torch.append(decoder_embs)
     else:
         print("no query")
     print (len(shape_embs_torch))
     return jsonify(shape_embs)
 
+@app.route('/update_voxel', methods=['GET', 'POST'])
+def update_voxel():
+    voxel_data = request.json
+    # print(voxel_data)
+    voxel_data = np.array(voxel_data)
+    voxel_emb = []
+
+    shape_embs_torch.append(voxel_emb)
+    return jsonify('')
+
 # ind0-3分别代表: 左下, 右下, 左上, 右上
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
 def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     print (idx0, idx1, idx2, idx3)
+    idx0 = int(idx0)
+    idx1 = int(idx1)
+    idx2 = int(idx2)
+    idx3 = int(idx3)
     net.eval()
     num_figs = 1
     resolution = 64
@@ -171,7 +186,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
         res_emb = shape_embs_torch[0]
         
         if (idx1 == -1):    # 1个embedding无插值
-            pass
+            res_emb = shape_embs_torch[idx0]
         elif (idx2 == -1):  # 2个embedding 一次线性插值
             res_emb = torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval)
         elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
@@ -182,28 +197,6 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
     # return jsonify([90])
     return jsonify(voxels_out[0].tolist())
-
-
-# def embs2voxel_lerp4(net, args, total_embs, save_path, xval, yval, resolution=64, num_figs_per_query=5):
-#     # total_embs的长度应小于4, index0-3分别代表: 左下, 右下, 左上, 右上
-#     # xval, yval∈[0, 1], 代表横向和纵向插值
-#     net.eval()
-#     num_figs = num_figs_per_query
-#     with torch.no_grad():
-#         voxel_size = resolution
-#         shape = (voxel_size, voxel_size, voxel_size)
-#         p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
-#         query_points = p.expand(num_figs, *p.size())
-
-#         # 这里暂时先用最简单的三次线性插值，即上下分别根据xval插值，然后上下合并yval插值
-#         res_emb = torch.lerp(torch.lerp(total_embs[0], total_embs[1], xval), torch.lerp(total_embs[2], total_embs[3], xval), yval)
-#         out = net.decoding(res_emb, query_points)
-#         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-        
-#         for voxel_in in voxels_out:
-#             # out_file = os.path.join(save_path, str(xval) + "_" + str(yval)+ ".png")
-#             # voxel_save(voxel_in, None, out_file=out_file)
-#             return voxel_in
 
 ##################################### Main and Parser stuff #################################################3
 
