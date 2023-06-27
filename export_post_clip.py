@@ -115,8 +115,11 @@ def index():
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     total_text_query = request.json
+    global shape_embs
     shape_embs = []
     shape_embs_torch = []
+    clip_model.eval()
+    latent_flow_model.eval()
     if (total_text_query != None):
         print(total_text_query)
         with torch.no_grad():
@@ -140,13 +143,38 @@ def get_embeddings_by_text_query():
                 shape_embs_torch.append(decoder_embs)
     else:
         print("no query")
+    
     return jsonify(shape_embs)
 
-@app.route('/get_voxel/<int:interpolation>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
-def get_voxel_interpolation(interpolation, xval, yval):
-    print(interpolation, xval, yval)
-    
-    return ''
+# ind0-3分别代表: 左下, 右下, 左上, 右上
+@app.route('/get_voxel/<int:idx0>-<int:idx1>-<int:idx2>-<int:idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
+def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
+    net.eval()
+    num_figs = 1
+    resolution = 64
+    with torch.no_grad():
+        voxel_size = resolution
+        shape = (voxel_size, voxel_size, voxel_size)
+        p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+        query_points = p.expand(num_figs, *p.size())
+
+        res_emb = shape_embs[0]
+        
+        if (idx1 == -1):    # 1个embedding无插值
+            pass
+        elif (idx2 == -1):  # 2个embedding 一次线性插值
+            res_emb = torch.lerp(shape_embs[idx0], shape_embs[idx1], xval)
+        elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
+            res_emb = xval * shape_embs[idx1] + yval * shape_embs[idx2] + (1.0 - xval - yval) * shape_embs[idx0]
+        else:               # 4个embedding 三次线性插值
+            res_emb = torch.lerp(torch.lerp(shape_embs[idx0], shape_embs[idx1], xval), torch.lerp(shape_embs[idx2], shape_embs[idx3], xval), yval)
+        out = net.decoding(res_emb, query_points)
+        voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+        
+        for voxel_in in voxels_out:
+            # out_file = os.path.join(save_path, str(xval) + "_" + str(yval)+ ".png")
+            # voxel_save(voxel_in, None, out_file=out_file)
+            return jsonify(voxel_in)
 
 
 # def embs2voxel_lerp4(net, args, total_embs, save_path, xval, yval, resolution=64, num_figs_per_query=5):
