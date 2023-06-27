@@ -249,6 +249,8 @@ class get_model(nn.Module):
         else:    
             return self.decoder(points, shape_embedding)
             
+    # def encoding(self, voxel_data):
+    #     return self.encoder(voxel_data)
 
     def reconstruction_loss(self, pred, gt):
         if self.output_type == "Pointcloud":
