@@ -1,5 +1,1 @@
-2023-06-18 09:19:13,335 - INFO - #############################
-2023-06-18 09:19:15,485 - INFO - Loaded the autoencoder: ./exps/models/autoencoder/best_iou.pt
-2023-06-18 09:19:20,003 - INFO - Loaded the nf model: ./exps/models/prior/best.pt
-2023-06-18 09:19:20,049 - INFO - #############################
-2023-06-18 09:19:20,049 - INFO - Conducting the experiment gen_embeddings_on_query
+2023-06-27 06:57:45,066 - INFO - #############################

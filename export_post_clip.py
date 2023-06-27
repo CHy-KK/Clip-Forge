@@ -28,8 +28,20 @@ from networks import autoencoder, latent_flows
 import clip
 
 from flask import Flask, jsonify, request, render_template
+from werkzeug.routing import BaseConverter
 
 app = Flask(__name__)
+
+
+class RegexConverter(BaseConverter):
+    def __init__(self, url_map, *args):
+        super(RegexConverter, self).__init__(url_map)
+        
+        # 将接收的第1个参数当作匹配规则进行保存
+        self.regex = args[0]
+
+app.url_map.converter['re'] = RegexConverter
+
 
 def get_local_parser_test(mode="args"):
     parser = get_local_parser(mode="parser")
@@ -115,9 +127,9 @@ def index():
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     total_text_query = request.json
-    global shape_embs
-    shape_embs = []
+    global shape_embs_torch
     shape_embs_torch = []
+    shape_embs = []
     clip_model.eval()
     latent_flow_model.eval()
     if (total_text_query != None):
@@ -125,12 +137,9 @@ def get_embeddings_by_text_query():
         with torch.no_grad():
             num_figs = 1
             for text_in in tqdm(total_text_query):
-                print (text_in)
                 ##########
                 text = clip.tokenize([text_in]).to(args.device)
                 text_features = clip_model.encode_text(text)
-                print('++++++++')
-                print (len(text_features))
                 text_features = text_features / text_features.norm(dim=-1, keepdim=True)
                 ###########
                 torch.manual_seed(5)
@@ -143,12 +152,13 @@ def get_embeddings_by_text_query():
                 shape_embs_torch.append(decoder_embs)
     else:
         print("no query")
-    
+    print (len(shape_embs_torch))
     return jsonify(shape_embs)
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上
-@app.route('/get_voxel/<int:idx0>-<int:idx1>-<int:idx2>-<int:idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
+@app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
 def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
+    print (idx0, idx1, idx2, idx3)
     net.eval()
     num_figs = 1
     resolution = 64
@@ -158,23 +168,20 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
         p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
         query_points = p.expand(num_figs, *p.size())
 
-        res_emb = shape_embs[0]
+        res_emb = shape_embs_torch[0]
         
         if (idx1 == -1):    # 1个embedding无插值
             pass
         elif (idx2 == -1):  # 2个embedding 一次线性插值
-            res_emb = torch.lerp(shape_embs[idx0], shape_embs[idx1], xval)
+            res_emb = torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval)
         elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
-            res_emb = xval * shape_embs[idx1] + yval * shape_embs[idx2] + (1.0 - xval - yval) * shape_embs[idx0]
+            res_emb = xval * shape_embs_torch[idx1] + yval * shape_embs_torch[idx2] + (1.0 - xval - yval) * shape_embs_torch[idx0]
         else:               # 4个embedding 三次线性插值
-            res_emb = torch.lerp(torch.lerp(shape_embs[idx0], shape_embs[idx1], xval), torch.lerp(shape_embs[idx2], shape_embs[idx3], xval), yval)
+            res_emb = torch.lerp(torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval), torch.lerp(shape_embs_torch[idx2], shape_embs_torch[idx3], xval), yval)
         out = net.decoding(res_emb, query_points)
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-        
-        for voxel_in in voxels_out:
-            # out_file = os.path.join(save_path, str(xval) + "_" + str(yval)+ ".png")
-            # voxel_save(voxel_in, None, out_file=out_file)
-            return jsonify(voxel_in)
+    # return jsonify([90])
+    return jsonify(voxels_out[0].tolist())
 
 
 # def embs2voxel_lerp4(net, args, total_embs, save_path, xval, yval, resolution=64, num_figs_per_query=5):
@@ -209,7 +216,8 @@ if __name__ == '__main__':
     global net
     global latent_flow_model
     global clip_model
-
+    global shape_embs_torch
+    shape_embs_torch = []
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
     net.load_state_dict(checkpoint['model'])
