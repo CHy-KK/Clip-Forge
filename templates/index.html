@@ -20,9 +20,10 @@
     const height = 600;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    const cameraPosInit = [0, 30, 100];
-    camera.position.z = 100;
-    camera.position.y = 50;
+    const radius = 100;
+    let dirX = 0;
+    let dirY = 45;
+    camera.position.set(Math.sin(dirX) * radius, Math.cos(dirY) * radius, Math.cos(dirX) * radius); // 设置0相机新的位置
     camera.lookAt(0,0,0);
     console.log(camera.position)
     
@@ -32,38 +33,49 @@
     document.body.appendChild(renderer.domElement);
 
     // Light Settings
-    const light = new THREE.AmbientLight( 0xffffff ); // soft white light
+    const light = new THREE.AmbientLight( 0xbbbbbb ); // soft white light
     scene.add( light );
-    const directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
-    scene.add( directionalLight );
-
+    const directionalLightTop = new THREE.DirectionalLight( 0xffffff, 0.5 );
+    directionalLightTop.position.z = 1;
+    scene.add( directionalLightTop );
+    const directionalLightLeft = new THREE.DirectionalLight( 0xffffff, 0.5 );
+    directionalLightLeft.position.z = -2;
+    scene.add( directionalLightLeft );
+    const directionalLightRight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+    directionalLightRight.position.z = 2;
+    scene.add( directionalLightRight );
+    const directionalLightDown = new THREE.DirectionalLight( 0xffffff, 0.5 );
+    directionalLightRight.position.y = -2;
+    scene.add( directionalLightDown );
 
     // Create Initial Voxel Cube
     const voxelSize = 3;
     const geometry = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
     const material = new THREE.MeshLambertMaterial({ color: 0x5588aa });
-    const voxelMeshes = [];
 
     let cube = new THREE.Mesh(geometry, material);
     cube.position.set(0, 0, -10);
-    voxelMeshes.push(cube);
-    let group = new THREE.Group();
-    group.add(cube);
-    scene.add(group);
+    scene.add(cube);
+
+    
+    let isDragging = false;
+    let prevX, prevY;
+    let curX, curY;
 
     // Render loop
     function render() {
       requestAnimationFrame(render);
-
-      // const time = Date.now() * 0.001; // 获取当前时间
-      // const radius = 100; // 定义旋转半径
-      // const angle = time * 0.5; // 定义旋转角度
-      // const angle2 = time * 0.2; // 定义旋转角度
-      // const x = Math.sin(angle) * radius;
-      // const z = Math.cos(angle) * radius;
-      // const y = Math.cos(angle2) * radius;
-      // camera.position.set(x, y, z); // 设置相机新的位置
-      // camera.lookAt(0, 0, 0); // 设置相机朝向坐标原点
+      if (isDragging) {
+        dirX = (dirX + (prevX - curX) * 0.01);
+        dirY = (dirY + (prevY - curY) * 0.01);
+        prevX = curX;
+        prevY = curY;
+        const x = Math.sin(dirX) * radius;
+        const z = Math.cos(dirX) * radius;
+        const y = Math.cos(dirY) * radius;
+        camera.position.set(x, y, z); // 设置0相机新的位置
+        camera.lookAt(0, 0, 0); // 设置相机朝向坐标原点
+      }
       renderer.render(scene, camera);
     }
 
@@ -117,26 +129,50 @@
         contentType: 'application/json',
         data: JSON.stringify(''),
         success: function(data) {
-          while (group.length  > 0) {
-            group.remove(group.children[0]);
+          console.log(scene.children);
+          for (let i = 0; i < scene.children.length;) {
+            if (scene.children[i] instanceof THREE.Mesh)
+              scene.remove(scene.children[i]);
+            else i++;
           }
-
+          let voxels = [];
           for (let x = 0; x < 64; x++) {
             for (let y = 0; y < 64; y++) {
               for (let z = 0; z < 64; z++) {
-                if (data[z][y][x]) {
-                  let cube = new THREE.Mesh(geometry, material);
-                  cube.position.set(x - 32, y - 32, z - 32);
-                  group.add(cube)
-                }
+                if (data[z][y][x]) 
+                  voxels.push([x - 32, y - 32, z - 32]);
               }
             }
           }
-          // camera.position.x = cameraPosInit.x;
-          // camera.position.y = cameraPosInit.y;
-          // camera.position.z = cameraPosInit.z;
+          const meshes = new THREE.InstancedMesh(geometry, material, voxels.length);
+          const matrix = new THREE.Matrix4();
+          for (let i = 0; i < voxels.length; i++) {
+            matrix.setPosition(voxels[i][0], voxels[i][1], voxels[i][2]);
+            meshes.setMatrixAt(i, matrix);
+            
+          }
+          scene.add(meshes);
         }
       });
+
+      renderer.domElement.addEventListener('mousedown', function(event) {
+        isDragging = true;
+        prevX = event.offsetX;
+        prevY = event.offsetY;
+        curX = event.offsetX;
+        curY = event.offsetY;
+      })
+
+      renderer.domElement.addEventListener('mousemove', function(event) {
+        if (isDragging) {
+          curX = event.offsetX;
+          curY = event.offsetY;
+        }
+      })
+
+      renderer.domElement.addEventListener('mouseup', function(event) {
+        isDragging = false;
+      })
     }
   </script>
   <h1>END </h1>
