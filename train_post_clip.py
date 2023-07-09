@@ -98,13 +98,15 @@ def get_dataloader(args, split="train", dataset_flag=False):
             dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
                      categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
 
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True, collate_fn=my_collate)
+            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=my_collate)
             total_shapes = len(dataset)
         else:
             dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
                      categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
             dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=my_collate)
             total_shapes = len(dataset)
+
+        print("dataloarder length = " + str(len(dataloader)))
 
         if dataset_flag == True:  
             return dataloader, total_shapes, dataset
@@ -126,6 +128,7 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
     cond_embeddings = []
     with torch.no_grad():
         for i in range(0, times):
+            print('dataloader size = ' + str(len(dataloader)))
             for data in tqdm(dataloader):
                 pc = data['pc_org'].type(torch.FloatTensor).to(args.device)
                 query_points, occ = data['points'], data['points.occ']
@@ -135,13 +138,22 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                 query_points = query_points.type(torch.FloatTensor).to(args.device)
                 occ = occ.type(torch.FloatTensor).to(args.device)
 
+                logging.info("datainput=====================================")
+                logging.info(data['voxels'])
+                logging.info(len(data['voxels']))
+                # logging.info(len(data['voxels'][1]))
+                logging.info(len(data['voxels'][0][0]))
+                logging.info("datainput=====================================")
                 if args.input_type == "Voxel":
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 elif args.input_type == "Pointcloud":
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
             
                 shape_emb = model.encoder(data_input)
-                
+                logging.info("datainput-------------------------------------")
+                # logging.info(data_input)
+                # logging.info(data_input.size)
+                logging.info("datainput-------------------------------------")
                 image_features = clip_model.encode_image(image)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
                     
