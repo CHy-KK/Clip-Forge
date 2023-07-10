@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Page</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+    </script>
+    <style>
+        .flex-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dot {
+            fill: skyblue;
+            transition: fill 0.2s;
+        }
+
+        .dot:hover {
+            fill: orange;
+            r: 8;
+        }
+
+        .dot {
+            fill: steelblue;
+            transition: fill 0.2s;
+        }
+
+        .dot:hover {
+            fill: orange;
+            r: 8;
+        }
+
+        .axis-label {
+            font-size: 12px;
+        }
+
+        .chart-title {
+            text-anchor: middle;
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>My Page</h1>
+    <!--<div class="flex-container" id="app">-->
+    <!--    <div>-->
+    <!--        <svg width="500" height="300"></svg>-->
+    <!--    </div>-->
+    <!--    <div>-->
+    <!--        <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>-->
+    <!--        <button onclick="update_voxel()">Upload Voxel</button>-->
+    <!--        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>-->
+    <!--        <button onclick="get_voxel(0.7, 0.8, 0, 1, 2)">Get Voxel2</button>-->
+    <!--    </div>-->
+    <!--</div>-->
+    <div class="flex-container" id="app">
+        <div>
+            <svg width="500" height="300" ref="svg"></svg>
+        </div>
+        <div>
+            <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>
+            <button onclick="update_voxel()">Upload Voxel</button>
+            <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
+            <button onclick="get_voxel(0.7, 0.8, 0, 1, 2)">Get Voxel2</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    width: 500,
+                    height: 300,
+                    data: [
+                        { x: -1, y: 2 },
+                        { x: 0, y: 5 },
+                        { x: 1, y: -4 },
+                        { x: -2, y: 7 },
+                        { x: 3, y: 1 }
+                    ],
+                    xScale: null,
+                    yScale: null,
+                };
+            },
+            mounted() {
+                this.xScale = d3.scaleLinear().range([30, 470]);
+                this.yScale = d3.scaleLinear().range([270, 30]);
+                this.updateScales();
+                this.drawChart();
+            },
+            methods: {
+                updateScales() {
+                    this.xScale.domain([d3.min(this.data, d => d.x), d3.max(this.data, d => d.x)]);
+                    this.yScale.domain([d3.min(this.data, d => d.y), d3.max(this.data, d => d.y)]);
+                },
+                drawAxes() {
+                    const svg = d3.select(this.$refs.svg);
+
+                    svg.append("g")
+                        .attr("transform", "translate(0, 270)")
+                        .call(d3.axisBottom(this.xScale))
+                        .append("text")
+                        .attr("class", "axis-label")
+                        .attr("x", 250)
+                        .attr("y", 40)
+                        .text("X轴");
+
+                    svg.append("g")
+                        .attr("transform", "translate(30, 0)")
+                        .call(d3.axisLeft(this.yScale))
+                        .append("text")
+                        .attr("class", "axis-label")
+                        .attr("x", -130)
+                        .attr("y", 150)
+                        .attr("transform", "rotate(-90)")
+                        .text("Y轴");
+                },
+                drawDots() {
+                    const svg = d3.select(this.$refs.svg);
+                    const dots = svg.selectAll("circle")
+                        .data(this.data)
+                        .join("circle")
+                        .attr("class", "dot")
+                        .attr("cx", d => this.xScale(d.x))
+                        .attr("cy", d => this.yScale(d.y))
+                        .attr("r", 5);
+
+                    dots.on("mouseover", (event, d) => {
+                        d3.select(event.target)
+                            .transition()
+                            .attr("fill", "orange")
+                            .attr("r", 8);
+                    });
+
+                    dots.on("mouseout", (event, d) => {
+                        d3.select(event.target)
+                            .transition()
+                            .attr("fill", "skyblue")
+                            .attr("r", 5);
+                    });
+
+                    dots.on("click", (event, d) => {
+                        console.log("Clicked point:", d);
+                    });
+                },
+                drawChart() {
+                    const svg = d3.select(this.$refs.svg);
+                    svg.selectAll("*").remove();
+                    this.drawAxes();
+                    this.drawDots();
+                },
+                updateData() {
+                    this.data = [
+                        { x: 50, y: 70 },
+                        { x: 80, y: 30 },
+                        { x: 20, y: 50 },
+                        { x: 60, y: 40 },
+                        { x: 70, y: 20 }
+                    ];
+                    this.updateScales();
+                    this.drawChart();
+                },
+            },
+        });
+    </script>
+    <script>
+        // Base Settings
+        const width = 600;
+        const height = 600;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+        const radius = 100;
+        let dirX = 0;
+        let dirY = 45;
+        camera.position.set(Math.sin(dirX) * radius, Math.cos(dirY) * radius, Math.cos(dirX) * radius); // 设置0相机新的位置
+        camera.lookAt(0,0,0);
+        console.log(camera.position)
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(width, height);
+        renderer.setClearColor(0x808080);
+        document.body.appendChild(renderer.domElement);
+
+    // Light Settings
+        const light = new THREE.AmbientLight( 0xbbbbbb ); // soft white light
+        scene.add( light );
+        const directionalLightTop = new THREE.DirectionalLight( 0xffffff, 0.5 );
+        directionalLightTop.position.z = 1;
+        scene.add( directionalLightTop );
+        const directionalLightLeft = new THREE.DirectionalLight( 0xffffff, 0.5 );
+        directionalLightLeft.position.z = -2;
+        scene.add( directionalLightLeft );
+        const directionalLightRight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+        directionalLightRight.position.z = 2;
+        scene.add( directionalLightRight );
+        const directionalLightDown = new THREE.DirectionalLight( 0xffffff, 0.5 );
+        directionalLightRight.position.y = -2;
+        scene.add( directionalLightDown );
+
+    // Create Initial Voxel Cube
+        const voxelSize = 3;
+        const geometry = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+        const material = new THREE.MeshLambertMaterial({ color: 0x5588aa });
+
+        let cube = new THREE.Mesh(geometry, material);
+        cube.position.set(0, 0, -10);
+        scene.add(cube);
+
+        let isDragging = false;
+        let prevX, prevY;
+        let curX, curY;
+
+    // Render loop
+        function render() {
+            requestAnimationFrame(render);
+            if (isDragging) {
+                dirX = (dirX + (prevX - curX) * 0.01);
+                dirY = (dirY + (prevY - curY) * 0.01);
+                prevX = curX;
+                prevY = curY;
+                const x = Math.sin(dirX) * radius;
+                const z = Math.cos(dirX) * radius;
+                const y = Math.cos(dirY) * radius;
+                camera.position.set(x, y, z); // 设置0相机新的位置
+                camera.lookAt(0, 0, 0); // 设置相机朝向坐标原点
+            }
+            renderer.render(scene, camera);
+        }
+
+        render();
+
+        function get_embeddings_by_text_query() {
+            const mylist = ["plane", "car", "truck", "rocket"];
+
+            $.ajax({
+                url: '/get_embeddings_by_text_query',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(mylist),
+                success: function(data) {
+                    console.log("success get embedding");
+                    console.log(data);
+                }
+            });
+        }
+
+        function update_voxel() {
+            voxel_data = []
+            for (let i = 0; i < 64; i++) {
+                tmp1 = []
+                for (let j = 0; j < 64; j++) {
+                    tmp2 = []
+                    for (let k = 0; k < 64; k++) {
+                        tmp2.push(Math.random() > 0.8)
+                    }
+                    tmp1.push(tmp2)
+                }
+                voxel_data.push(tmp1)
+            }
+            console.log(voxel_data)
+            $.ajax({
+                url: '/update_voxel',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(voxel_data),
+                success: function() {
+                    console.log("success get embedding");
+                }
+            });
+        }
+
+        function get_voxel(xval, yval, idx0=0, idx1=-1, idx2=-1, idx3=-1) {
+            $.ajax({
+            // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
+                url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}${xval == 0 ? '.0':''}-${yval}${yval == 0 ? '.0':''}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(''),
+                success: function(data) {
+                    console.log(scene.children);
+                    for (let i = 0; i < scene.children.length;) {
+                        if (scene.children[i] instanceof THREE.Mesh)
+                            scene.remove(scene.children[i]);
+                        else i++;
+                    }
+                    let voxels = [];
+                    for (let x = 0; x < 64; x++) {
+                        for (let y = 0; y < 64; y++) {
+                            for (let z = 0; z < 64; z++) {
+                                if (data[z][y][x])
+                                    voxels.push([x - 32, y - 32, z - 32]);
+                            }
+                        }
+                    }
+                    const meshes = new THREE.InstancedMesh(geometry, material, voxels.length);
+                    const matrix = new THREE.Matrix4();
+                    for (let i = 0; i < voxels.length; i++) {
+                        matrix.setPosition(voxels[i][0], voxels[i][1], voxels[i][2]);
+                        meshes.setMatrixAt(i, matrix);
+
+                    }
+                    scene.add(meshes);
+                }
+            });
+
+            renderer.domElement.addEventListener('mousedown', function(event) {
+                isDragging = true;
+                prevX = event.offsetX;
+                prevY = event.offsetY;
+                curX = event.offsetX;
+                curY = event.offsetY;
+            })
+
+            renderer.domElement.addEventListener('mousemove', function(event) {
+                if (isDragging) {
+                    curX = event.offsetX;
+                    curY = event.offsetY;
+                }
+            })
+
+            renderer.domElement.addEventListener('mouseup', function(event) {
+                isDragging = false;
+            })
+        }
+    </script>
+    <h1>END </h1>
+</body>
+</html>
