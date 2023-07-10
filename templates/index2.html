@@ -61,125 +61,153 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   
 
-    <script>
-        // 定义数据
-        var data = [
-            { x: -1, y: 2 },
-            { x: 0, y: 5 },
-            { x: 1, y: -4 },
-            { x: -2, y: 7 },
-            { x: 3, y: 1 }
-        ];
+  <script>
+    // 定义数据
+    var data = [
+        { x: -1, y: 2 },
+        { x: 0, y: 5 },
+        { x: 1, y: -4 },
+        { x: -2, y: 7 },
+        { x: 3, y: 1 }
+    ];
 
-        // 创建svg画布
-        const svg = d3.select("svg");
+    // 创建svg画布
+    const svg = d3.select("svg");
 
-    // 定义 X 轴比例尺
-        var xScale = d3.scaleLinear()
-            .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
-            .range([30, 370]);
+// 定义 X 轴比例尺
+    var xScale = d3.scaleLinear()
+        .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
+        .range([30, 370]);
 
-    // 定义 Y 轴比例尺
-       var yScale = d3.scaleLinear()
-            .domain([d3.min(data, d => d.y), d3.max(data, d => d.y)])
-            .range([270, 30]);
+// 定义 Y 轴比例尺
+   var yScale = d3.scaleLinear()
+        .domain([d3.min(data, d => d.y), d3.max(data, d => d.y)])
+        .range([270, 30]);
 
-    // 根据最新数据更新比例尺
-        function updateScales() {
-            xScale.domain([d3.min(data, d => d.x), d3.max(data, d => d.x)]);
-            yScale.domain([d3.min(data, d => d.y), d3.max(data, d => d.y)]);
-        }
+// 根据最新数据更新比例尺
+    function updateScales() {
+        xScale.domain([d3.min(data, d => d.x), d3.max(data, d => d.x)]);
+        yScale.domain([d3.min(data, d => d.y), d3.max(data, d => d.y)]);
+    }
 
-    // 绘制坐标轴
-        const drawAxes = () => {
-        // 绘制x轴
-            svg.append("g")
-                .attr("transform", "translate(0, 270)")
-                .call(d3.axisBottom(xScale))
-                .append("text")
-                .attr("class", "axis-label")
-                .attr("x", 250)
-                .attr("y", 40)
-                .text("X轴");
+// 绘制坐标轴
+    const drawAxes = () => {
+    // 绘制x轴
+        svg.append("g")
+            .attr("transform", "translate(0, 270)")
+            .call(d3.axisBottom(xScale))
+            .append("text")
+            .attr("class", "axis-label")
+            .attr("x", 250)
+            .attr("y", 40)
+            .text("X轴");
 
-        // 绘制y轴
-            svg.append("g")
-                .attr("transform", "translate(30, 0)")
-                .call(d3.axisLeft(yScale))
-                .append("text")
-                .attr("class", "axis-label")
-                .attr("x", -130)
-                .attr("y", 150)
-                .attr("transform", "rotate(-90)")
-                .text("Y轴");
-        };
+    // 绘制y轴
+        svg.append("g")
+            .attr("transform", "translate(30, 0)")
+            .call(d3.axisLeft(yScale))
+            .append("text")
+            .attr("class", "axis-label")
+            .attr("x", -130)
+            .attr("y", 150)
+            .attr("transform", "rotate(-90)")
+            .text("Y轴");
+    };
 
-    // 绘制散点
-        const drawDots = () => {
-            const dots = svg.selectAll("circle")
-                .data(data)
-                .enter()
-                .append("circle")
-                .attr("class", "dot")
-                .attr("cx", d => xScale(d.x))
-                .attr("cy", d => yScale(d.y))
-                .attr("r", 5)
-                .attr("fill", (d, i) => colorScale(i));
+// 绘制散点
+    const drawDots = () => {
+        const dots = svg.selectAll("circle")
+            .data(data)
+            .enter()
+            .append("circle")
+            .attr("class", "dot")
+            .attr("cx", d => xScale(d.x))
+            .attr("cy", d => yScale(d.y))
+            .attr("r", 5)
+//                .attr("fill", (d, i) => colorScale(i));
+
+
+    // 添加鼠标悬停事件监听器
+        dots.on("mouseover", (event, d) => {
+            d3.select(event.target)
+                .transition()
+                .attr("fill", "orange")
+                .attr("r", 8);
+        });
 
         // 添加点击事件监听器
-            dots.on("click", (event, d) => {
-                console.log("Clicked point:", d);
-            });
+        dots.on("click", (event, d) => {
+            console.log("Clicked point:", d);
 
-        // 添加鼠标悬停事件监听器
-            dots.on("mouseover", (event, d) => {
-                d3.select(event.target)
-                    .transition()
-                    .attr("fill", "orange")
-                    .attr("r", 8);
-            });
+            // 将数据发送到后台
+            //sendDataToBackend(d);
+        });
 
-        // 添加鼠标移出事件监听器
-            dots.on("mouseout", (event, d) => {
-                d3.select(event.target)
-                    .transition()
-                    .attr("fill", (d, i) => colorScale(i))
-                    .attr("r", 5);
-            });
-        };
+        dots.on("click", (event, d) => {
+            console.log("Clicked point:", d);
 
-    // 绘制图表
-        const drawChart = () => {
-            drawAxes();
-            drawDots();
-        };
+            // 提取 x 和 y 坐标
+            const x = d.x;
+            const y = d.y;
 
-    // 初始化图表
-        drawChart();
+            // 将 x 和 y 坐标信息发送到控制台
+            console.log("Clicked point coordinates - x:", x, "y:", y);
+        });
 
-    // 模拟数据更新
-        const updateData = () => {
-            data = [
-                { x: 50, y: 70 },
-                { x: 80, y: 30 },
-                { x: 20, y: 90 },
-                { x: 40, y: 120 },
-                { x: 60, y: 20 }
-            ];
+        // 将数据发送到后台的函数
+        function sendDataToBackend(data) {
+            // 使用 fetch 或其他适合的方法将数据发送到后台
+            // 例如，以下是使用 fetch 将数据作为 JSON 发送到后台的示例代码
+            fetch('/your-backend-endpoint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => {
+                    // 处理后台返回的响应
+                    console.log('Data sent to backend successfully:', response);
+                })
+                .catch(error => {
+                    // 处理错误情况
+                    console.error('Error sending data to backend:', error);
+                });
+        }
+    };
 
-            updateScales();
+// 绘制图表
+    const drawChart = () => {
+        drawAxes();
+        drawDots();
+    };
 
-        // 清除旧的散点
-            svg.selectAll("circle").remove();
+// 初始化图表
+    drawChart();
 
-        // 绘制新的散点
-            drawDots();
-        };
+// 模拟数据更新
+    const updateData = () => {
+        data = [
+            { x: 50, y: 70 },
+            { x: 80, y: 30 },
+            { x: 20, y: 90 },
+            { x: 40, y: 120 },
+            { x: 60, y: 20 }
+        ];
 
-    // 模拟点击按钮更新数据
-        const updateButton = document.getElementById("update-button");
-        updateButton.addEventListener("click", updateData);
-    </script>
+        updateScales();
+
+    // 清除旧的散点
+        svg.selectAll("circle").remove();
+
+    // 绘制新的散点
+        drawDots();
+    };
+
+// 模拟点击按钮更新数据
+    const updateButton = document.getElementById("update-button");
+    updateButton.addEventListener("click", updateData);
+</script>
   <script>
     // Base Settings
     const width = 600;
