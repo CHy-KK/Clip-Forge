@@ -3,8 +3,6 @@
 <head>
     <title>My Page</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-    </script>
     <style>
         .flex-container {
             display: flex;
@@ -42,25 +40,25 @@
         }
     </style>
 </head>
-<body>
+<body id="body">
     <h1>My Page</h1>
-    <!--<div class="flex-container" id="app">-->
-    <!--    <div>-->
-    <!--        <svg width="500" height="300"></svg>-->
-    <!--    </div>-->
-    <!--    <div>-->
-    <!--        <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>-->
-    <!--        <button onclick="update_voxel()">Upload Voxel</button>-->
-    <!--        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>-->
-    <!--        <button onclick="get_voxel(0.7, 0.8, 0, 1, 2)">Get Voxel2</button>-->
-    <!--    </div>-->
-    <!--</div>-->
-    <div class="flex-container" id="app">
-        <div>
+    <div class="flex-container">
+        <div id="app">
             <svg width="500" height="300" ref="svg"></svg>
         </div>
+        <div id="app2">
+            <svg width="500" height="500" ref="svg2">
+                <defs>
+                    <linearGradient id="Gradient1" x1="0" x2="1" y1="1" y2="0">
+                        <stop offset="0%" stop-color="rgb(0, 0, 255)" />
+                        <stop offset="100%" stop-color="rgb(255, 255, 255)" />
+                    </linearGradient>
+                </defs>
+                <rect id="background" width="0" height="0" fill="url(#Gradient1)" />
+            </svg>
+        </div>
         <div>
-            <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>
+            <button @click="updateData()" onclick="get_embeddings_by_text_query()" >Get Embeddings</button>
             <button onclick="update_voxel()">Upload Voxel</button>
             <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
             <button onclick="get_voxel(0.7, 0.8, 0, 1, 2)">Get Voxel2</button>
@@ -71,7 +69,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-
     <script>
         new Vue({
             el: '#app',
@@ -169,6 +166,123 @@
                     this.drawChart();
                 },
             },
+        });
+        new Vue({
+            el: '#app2',
+            data() {
+                return {
+                    svg: null,
+                    data: [
+                        { x: 0, y: 0 },
+                        { x: 1, y: 0 },
+                        { x: 0, y: 1 },
+                        { x: 1, y: 1 }
+                    ],
+                    timer: null
+                };
+            },
+            mounted() {
+                this.svg = d3.select(this.$refs.svg2);
+                this.draw();
+            },
+            methods: {
+                draw() {
+                    const xScale = d3.scaleLinear()
+                        .domain([0, d3.max(this.data, d => d.x)])
+                        .range([30, 470]);
+
+                    const yScale = d3.scaleLinear()
+                        .domain([0, d3.max(this.data, d => d.y)])
+                        .range([470, 30]);
+
+                    const dots = this.svg.selectAll("circle")
+                        .data(this.data)
+                        .enter()
+                        .append("circle")
+                        .attr("class", "dot")
+                        .attr("cx", d => xScale(d.x))
+                        .attr("cy", d => yScale(d.y))
+                        .attr("r", 5);
+
+                    dots.each((d, i, nodes) => {
+                        this.animate(d3.select(nodes[i]), "dot-"+i);
+                    });
+
+                    dots.on("mouseover", (event, d, i) => {
+                        d3.select(event.target)
+                            .interrupt("dot-"+i)
+                            .attr("r", 10)
+                            .style("fill", "orange");
+                    })
+                        .on("mouseout", (event, d, i) => {
+                            d3.select(event.target)
+                                .style("fill", "steelblue");
+                            this.animate(d3.select(event.target), "dot-"+i);
+                        })
+                        .on("click", (event, d, i) => {
+                            if (!this.clicks) { // 如果没有点击过
+                                this.clicks = 1; // 初始化点击次数
+                                this.clickTimer = setTimeout(() => {
+                                    this.clicks = 0; // 1秒后重置点击次数
+                                }, 1000);
+                            } else {
+                                this.clicks++; // 如果已经点击过，增加点击次数
+                                if (this.clicks === 3) { // 如果已经点击3次
+                                    clearTimeout(this.clickTimer); // 取消1秒后的重置
+                                    let pointToDelete;
+                                    switch (this.data.length) {
+                                        case 4:
+                                            pointToDelete = {x: 1, y: 1};
+                                            break;
+                                        case 3:
+                                            pointToDelete = {x: 0, y: 1};
+                                            break;
+                                        case 2:
+                                            pointToDelete = {x: 1, y: 0};
+                                            break;
+                                        default:
+                                            pointToDelete = {x: 0, y: 0};
+                                    }
+
+                                    const indexToDelete = this.data.findIndex(item => item.x === pointToDelete.x && item.y === pointToDelete.y);
+
+                                    if (indexToDelete !== -1) {
+                                        this.data.splice(indexToDelete, 1);
+                                        this.svg.selectAll("circle").data(this.data).exit().remove();
+                                    }
+                                    this.clicks = 0; // 删除点后重置点击次数
+                                }
+                            }
+                            console.log(d);
+                        })
+
+                    this.svg.append("g")
+                        .attr("transform", "translate(0, 470)")
+                        .call(d3.axisBottom(xScale).tickSize(0).tickFormat(""));
+
+                    this.svg.append("g")
+                        .attr("transform", "translate(30, 0)")
+                        .call(d3.axisLeft(yScale).tickSize(0).tickFormat(""));
+
+                    this.svg.select("#background")
+                        .attr("x", 30)
+                        .attr("y", 30)
+                        .attr("width", 440)  // 把宽度和高度设置为合适的值
+                        .attr("height", 440);
+                },
+                animate(selection, id) {
+                    selection
+                        .transition(id)
+                        .duration(2000)
+                        .attr("r", 10)
+                        .style("opacity", 1)
+                        .transition()
+                        .duration(2000)
+                        .attr("r", 5)
+                        .style("opacity", 1)
+                        .end().then(() => this.animate(selection, id));
+                },
+            }
         });
     </script>
     <script>
