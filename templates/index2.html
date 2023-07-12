@@ -221,14 +221,14 @@
                         })
                         .on("click", (event, d, i) => {
                             if (!this.clicks) { // 如果没有点击过
-                                this.clicks = 1; // 初始化点击次数
+                                this.clicks = 1; 
                                 this.clickTimer = setTimeout(() => {
-                                    this.clicks = 0; // 1秒后重置点击次数
+                                    this.clicks = 0;
                                 }, 1000);
                             } else {
-                                this.clicks++; // 如果已经点击过，增加点击次数
-                                if (this.clicks === 3) { // 如果已经点击3次
-                                    clearTimeout(this.clickTimer); // 取消1秒后的重置
+                                this.clicks++;
+                                if (this.clicks === 3) {
+                                    clearTimeout(this.clickTimer);
                                     let pointToDelete;
                                     switch (this.data.length) {
                                         case 4:
@@ -250,7 +250,7 @@
                                         this.data.splice(indexToDelete, 1);
                                         this.svg.selectAll("circle").data(this.data).exit().remove();
                                     }
-                                    this.clicks = 0; // 删除点后重置点击次数
+                                    this.clicks = 0;
                                 }
                             }
                             console.log(d);
@@ -267,7 +267,7 @@
                     this.svg.select("#background")
                         .attr("x", 30)
                         .attr("y", 30)
-                        .attr("width", 440)  // 把宽度和高度设置为合适的值
+                        .attr("width", 440)
                         .attr("height", 440);
                 },
                 animate(selection, id) {
