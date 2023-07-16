@@ -49,12 +49,17 @@
         <div id="app2">
             <svg width="500" height="500" ref="svg2">
                 <defs>
-                    <linearGradient id="Gradient1" x1="0" x2="1" y1="1" y2="0">
-                        <stop offset="0%" stop-color="rgb(0, 0, 255)" />
-                        <stop offset="100%" stop-color="rgb(255, 255, 255)" />
+                    <linearGradient id="Gradient-x" x1="0" x2="1" y1="0" y2="0">
+                        <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
+                        <stop offset="100%" stop-color="rgba(0, 255, 0, 1)" />
+                    </linearGradient>
+                    <linearGradient id="Gradient-y" x1="0" x2="0" y1="1" y2="0">
+                        <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
+                        <stop offset="100%" stop-color="rgba(255, 0, 0, 1)" />
                     </linearGradient>
                 </defs>
-                <rect id="background" width="0" height="0" fill="url(#Gradient1)" />
+                <rect id="background" width="440" height="440" fill="url(#Gradient-x)" fill-opacity="0.5"/>
+                <rect id="background" width="440" height="440" fill="url(#Gradient-y)" fill-opacity="0.5" x="30" y="30"/>
             </svg>
         </div>
         <div>

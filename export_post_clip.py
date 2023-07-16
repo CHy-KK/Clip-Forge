@@ -81,7 +81,7 @@ args.device = device
 
 @app.route('/')
 def index():
-  return render_template('index.html')
+  return render_template('index2.html')
 
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
