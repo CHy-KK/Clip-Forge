@@ -83,6 +83,10 @@ args.device = device
 def index():
   return render_template('index2.html')
 
+@app.route('/initialize_overview', methods=['GET', 'POST'])
+def initialize_overview():
+    pass
+ 
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     total_text_query = request.json
@@ -122,16 +126,16 @@ def get_embeddings_by_text_query():
 
 @app.route('/update_voxel', methods=['GET', 'POST'])
 def update_voxel():
-    new_voxel_data = request.json
+    new_voxel_data = [request.json]
     # print(voxel_data)
     new_voxel_data = np.array(new_voxel_data)
     print(new_voxel_data)
-    print(new_voxel_data.shape)
     new_voxel_data = torch.Tensor(new_voxel_data)
-    # new_voxel_emb = net.encoder(voxel_data.type(torch.FloatTensor).to(args.device))
+    print(new_voxel_data.shape)
+    new_voxel_emb = net.encoder(new_voxel_data.type(torch.FloatTensor).to(args.device))
     print(new_voxel_emb)
     shape_embs_torch.append(new_voxel_emb)
-    new_reduced = pca.transform(new_voxel_emb)
+    # new_reduced = pca.transform(new_voxel_emb)
     return jsonify('')
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上

@@ -139,10 +139,13 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                 occ = occ.type(torch.FloatTensor).to(args.device)
 
                 logging.info("datainput=====================================")
-                logging.info(data['voxels'])
+                logging.info(data['voxels'].shape)
                 logging.info(len(data['voxels']))
-                # logging.info(len(data['voxels'][1]))
+                # logging.info(data)
+                logging.info(len(data['voxels'][0]))
+                logging.info(data['voxels'][0].shape)
                 logging.info(len(data['voxels'][0][0]))
+                logging.info(data['voxels'][0][0].shape)
                 logging.info("datainput=====================================")
                 if args.input_type == "Voxel":
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
@@ -151,8 +154,8 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
             
                 shape_emb = model.encoder(data_input)
                 logging.info("datainput-------------------------------------")
-                # logging.info(data_input)
-                # logging.info(data_input.size)
+                logging.info(data_input)
+                logging.info(data_input.size)
                 logging.info("datainput-------------------------------------")
                 image_features = clip_model.encode_image(image)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
