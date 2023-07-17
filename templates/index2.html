@@ -5,8 +5,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         .flex-container {
-            display: flex;
-            flex-direction: column;
+            /*display: flex;
+            flex-direction: column;*/
         }
 
         .dot {
@@ -38,49 +38,108 @@
             font-size: 16px;
             font-weight: bold;
         }
+
+        .center{
+            background-color: pink;
+            height: 900px;
+            width: 1600px;
+        }
+        .left{
+            float: left;
+            width: 800px;
+        }
+        .left_top{
+            background-color: red;
+            height: 100px;
+        }
+        .left_center{
+            background-color: #42b983;
+            height: 150px;
+        }
+        .left_bottom{
+            background-color: blue;
+            height: 650px;
+        }
+        .right{
+            float: right;
+            width: 800px;
+        }
+        .right_top{
+            background-color: chartreuse;
+            height: 400px;
+        }
+        .right_bottom{
+            background-color: orange;
+            height: 500px;
+        }
     </style>
 </head>
 <body id="body">
-    <h1>My Page</h1>
-    <div class="flex-container">
-        <div id="app">
-            <svg width="500" height="300" ref="svg"></svg>
+    <!--<h1>My Page</h1>-->
+    <div class="left">
+        <div class="left_top"></div>
+        <div class="left_center" id="buttonApp">
+            <div style="display: flex; flex-direction: row; align-items: center;">
+                <form id="myForm" action="/submit_form" method="POST" style="display: flex; flex-direction: row; align-items: center;">
+                    <div style="display: flex; flex-direction: column;">
+                        <textarea id="message" name="message" rows="5" cols="30"></textarea>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <button @click="updateData()" type="submit">Get Embeddings</button>
+                        <button onclick="update_voxel()" type="button">Upload Voxel</button>
+                    </div>
+                </form>
+            </div>
+        <!--            <<button @click="updateData()" type="submit">Get Embeddings</button>-->
+
         </div>
-        <div id="app2">
-            <svg width="500" height="500" ref="svg2">
-                <defs>
-                    <linearGradient id="Gradient-x" x1="0" x2="1" y1="0" y2="0">
-                        <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
-                        <stop offset="100%" stop-color="rgba(0, 255, 0, 1)" />
-                    </linearGradient>
-                    <linearGradient id="Gradient-y" x1="0" x2="0" y1="1" y2="0">
-                        <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
-                        <stop offset="100%" stop-color="rgba(255, 0, 0, 1)" />
-                    </linearGradient>
-                </defs>
-                <rect id="background" width="440" height="440" fill="url(#Gradient-x)" fill-opacity="0.5"/>
-                <rect id="background" width="440" height="440" fill="url(#Gradient-y)" fill-opacity="0.5" x="30" y="30"/>
-            </svg>
+        <div class="left_bottom" id="app">
+            <svg width="500" height=500" ref="svg"></svg>
+        <!--            </div>-->
         </div>
-        <div>
-            <button @click="updateData()" onclick="get_embeddings_by_text_query()" >Get Embeddings</button>
-            <button onclick="update_voxel()">Upload Voxel</button>
+    </div>
+    <div class="right">
+        <div class="right_top">
+            <div id="app2">
+                <svg width="500" height="500" ref="svg2">
+                    <defs>
+                        <linearGradient id="Gradient-x" x1="0" x2="1" y1="0" y2="0">
+                            <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
+                            <stop offset="100%" stop-color="rgba(0, 255, 0, 1)" />
+                        </linearGradient>
+                        <linearGradient id="Gradient-y" x1="0" x2="0" y1="1" y2="0">
+                            <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
+                            <stop offset="100%" stop-color="rgba(255, 0, 0, 1)" />
+                        </linearGradient>
+                    </defs>
+                    <rect id="background" width="340" height="340" fill="url(#Gradient-x)" fill-opacity="0.5"/>
+                    <rect id="background" width="340" height="340" fill="url(#Gradient-y)" fill-opacity="0.5" x="30" y="30"/>
+                </svg>
+            </div>
+        </div>
+        <div class="right_bottom">
             <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
             <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
         </div>
     </div>
-
+    <div  id="buttonApp2">
+        <button @click="updateData()" >Get Embeddings</button>
+        <button onclick="update_voxel()">Upload Voxel</button>
+        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
+        <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script>
+        var EventBus = new Vue();
         new Vue({
             el: '#app',
             data() {
                 return {
                     width: 500,
-                    height: 300,
+                    height: 500,
                     data: [
                         { x: -1, y: 2 },
                         { x: 0, y: 5 },
@@ -92,9 +151,12 @@
                     yScale: null,
                 };
             },
+            created() {
+                EventBus.$on('buttonClicked', this.updateData);
+            },
             mounted() {
                 this.xScale = d3.scaleLinear().range([30, 470]);
-                this.yScale = d3.scaleLinear().range([270, 30]);
+                this.yScale = d3.scaleLinear().range([470, 30]);
                 this.updateScales();
                 this.drawChart();
             },
@@ -107,7 +169,7 @@
                     const svg = d3.select(this.$refs.svg);
 
                     svg.append("g")
-                        .attr("transform", "translate(0, 270)")
+                        .attr("transform", "translate(0, 470)")
                         .call(d3.axisBottom(this.xScale))
                         .append("text")
                         .attr("class", "axis-label")
@@ -160,13 +222,14 @@
                     this.drawDots();
                 },
                 updateData() {
-                    this.data = [
-                        { x: 50, y: 70 },
-                        { x: 80, y: 30 },
-                        { x: 20, y: 50 },
-                        { x: 60, y: 40 },
-                        { x: 70, y: 20 }
-                    ];
+                    get_embeddings_by_text_query(),
+                        this.data = [
+                            { x: 50, y: 70 },
+                            { x: 80, y: 30 },
+                            { x: 20, y: 50 },
+                            { x: 60, y: 40 },
+                            { x: 70, y: 20 }
+                        ];
                     this.updateScales();
                     this.drawChart();
                 },
@@ -194,11 +257,11 @@
                 draw() {
                     const xScale = d3.scaleLinear()
                         .domain([0, d3.max(this.data, d => d.x)])
-                        .range([30, 470]);
+                        .range([30, 370]);
 
                     const yScale = d3.scaleLinear()
                         .domain([0, d3.max(this.data, d => d.y)])
-                        .range([470, 30]);
+                        .range([370, 30]);
 
                     const dots = this.svg.selectAll("circle")
                         .data(this.data)
@@ -226,7 +289,7 @@
                         })
                         .on("click", (event, d, i) => {
                             if (!this.clicks) { // 如果没有点击过
-                                this.clicks = 1; 
+                                this.clicks = 1;
                                 this.clickTimer = setTimeout(() => {
                                     this.clicks = 0;
                                 }, 1000);
@@ -262,7 +325,7 @@
                         })
 
                     this.svg.append("g")
-                        .attr("transform", "translate(0, 470)")
+                        .attr("transform", "translate(0, 370)")
                         .call(d3.axisBottom(xScale).tickSize(0).tickFormat(""));
 
                     this.svg.append("g")
@@ -272,8 +335,8 @@
                     this.svg.select("#background")
                         .attr("x", 30)
                         .attr("y", 30)
-                        .attr("width", 440)
-                        .attr("height", 440);
+                        .attr("width", 340)
+                        .attr("height", 340);
                 },
                 animate(selection, id) {
                     selection
@@ -285,13 +348,31 @@
                         .duration(2000)
                         .attr("r", 5)
                         .style("opacity", 1)
-                        .end().then(() => this.animate(selection, id));
+                        .end().then(() => this.animate(selection, id))
                 },
             }
         });
+        new Vue({
+            el: '#buttonApp',
+            methods: {
+                updateData() {
+                    event.preventDefault();
+                    EventBus.$emit('buttonClicked');
+                },
+            },
+        });
+        new Vue({
+            el: '#buttonApp2',
+            methods: {
+                updateData() {
+                    event.preventDefault();
+                    EventBus.$emit('buttonClicked');
+                },
+            },
+        });
     </script>
     <script>
-        // Base Settings
+    // Base Settings
         const width = 600;
         const height = 600;
         const scene = new THREE.Scene();
@@ -393,7 +474,7 @@
                     tmp2 = []
                     for (let k = 0; k < 64; k+=2) {
                         if (Number(voxel_data[i][j][k]) + Number(voxel_data[i + 1][j][k]) + Number(voxel_data[i][j + 1][k]) + Number(voxel_data[i + 1][j + 1][k])
-                          + Number(voxel_data[i][j][k + 1]) + Number(voxel_data[i + 1][j][k + 1]) + Number(voxel_data[i][j + 1][k + 1]) + Number(voxel_data[i + 1][j + 1][k + 1]) >= 3) 
+                            + Number(voxel_data[i][j][k + 1]) + Number(voxel_data[i + 1][j][k + 1]) + Number(voxel_data[i][j + 1][k + 1]) + Number(voxel_data[i + 1][j + 1][k + 1]) >= 3)
                             tmp2.push(true)
                         else
                             tmp2.push(false)
@@ -417,30 +498,30 @@
             });
         }
 
-        // function compare_voxel() {
-        //   $.ajax({
-        //     // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
-        //         url: `/get_voxel/4--1--1--1/0-0}`,
-        //         type: 'POST',
-        //         contentType: 'application/json',
-        //         data: JSON.stringify(''),
-        //         success: function(data) {
-        //             let res = 0;
-        //             for (let i = 0; i < 64; i++) {
-        //               for (let j = 0; j < 64; j++) {
-        //                 for (let k = 0; k < 64; k++) {
-        //                   if (data[0])
-        //                 }
-        //               }
-        //             }
-                    
-        //         }
-        //     });
-        // }
+    // function compare_voxel() {
+    //   $.ajax({
+    //     // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
+    //         url: `/get_voxel/4--1--1--1/0-0}`,
+    //         type: 'POST',
+    //         contentType: 'application/json',
+    //         data: JSON.stringify(''),
+    //         success: function(data) {
+    //             let res = 0;
+    //             for (let i = 0; i < 64; i++) {
+    //               for (let j = 0; j < 64; j++) {
+    //                 for (let k = 0; k < 64; k++) {
+    //                   if (data[0])
+    //                 }
+    //               }
+    //             }
+
+    //         }
+    //     });
+    // }
 
         function get_voxel(xval, yval, idx0=0, idx1=-1, idx2=-1, idx3=-1) {
             $.ajax({
-            // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
+                // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
                 url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}${xval == 0 ? '.0':''}-${yval}${yval == 0 ? '.0':''}`,
                 type: 'POST',
                 contentType: 'application/json',
