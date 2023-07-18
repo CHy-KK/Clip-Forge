@@ -64,7 +64,7 @@
 
         .left_top {
             background-color: red;
-            height: 15vh;
+            height: 10vh;
         }
 
         .left_center {
@@ -74,7 +74,7 @@
 
         .left_bottom {
             /*background-color: blue;*/
-            height: 70vh;
+            height: 75vh;
         }
 
         .right {
@@ -149,7 +149,7 @@
                 </svg>
             </div>
         </div>
-        <div class="right_bottom">
+        <div class="right_bottom" id="canvas-container">
             <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
             <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
         </div>
@@ -406,8 +406,8 @@
 </script>
 <script>
     // Base Settings
-    const width = 600;
-    const height = 600;
+    const width = 400;
+    const height = 400;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     const radius = 100;
@@ -420,7 +420,8 @@
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(width, height);
     renderer.setClearColor(0x808080);
-    document.body.appendChild(renderer.domElement);
+    const container = document.getElementById('canvas-container');
+    container.appendChild(renderer.domElement);
 
     // Light Settings
     const light = new THREE.AmbientLight(0xbbbbbb); // soft white light
