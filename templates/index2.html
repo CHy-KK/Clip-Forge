@@ -523,7 +523,7 @@
         });
     }
 
-    function get_embeddings_by_text_query() {
+    function get_embeddings_by_text_query(callback) {
         const mylist = ["plane", "car", "truck", "rocket"];
 
         $.ajax({
@@ -534,6 +534,8 @@
             success: function (data) {
                 console.log("success get embedding");
                 console.log(data);
+                const coordinates = data.map(item => ({ x: item.x, y: item.y }));
+                callback(coordinates);
             }
         });
     }
