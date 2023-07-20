@@ -259,14 +259,11 @@
                 this.drawDots();
             },
             updateData() {
-                get_embeddings_by_text_query(),
-                    this.data = [
-                        {x: 50, y: 70},
-                        {x: 80, y: 30},
-                        {x: 20, y: 50},
-                        {x: 60, y: 40},
-                        {x: 70, y: 20}
-                    ];
+                get_embeddings_by_text_query((data) => {
+                    this.data = data;
+                    this.updateScales();
+                    this.drawChart();
+                });
                 this.updateScales();
                 this.drawChart();
             },
@@ -574,27 +571,6 @@
             }
         });
     }
-
-    // function compare_voxel() {
-    //   $.ajax({
-    //     // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
-    //         url: `/get_voxel/4--1--1--1/0-0}`,
-    //         type: 'POST',
-    //         contentType: 'application/json',
-    //         data: JSON.stringify(''),
-    //         success: function(data) {
-    //             let res = 0;
-    //             for (let i = 0; i < 64; i++) {
-    //               for (let j = 0; j < 64; j++) {
-    //                 for (let k = 0; k < 64; k++) {
-    //                   if (data[0])
-    //                 }
-    //               }
-    //             }
-
-    //         }
-    //     });
-    // }
 
     function get_voxel(xval, yval, idx0 = 0, idx1 = -1, idx2 = -1, idx3 = -1) {
         $.ajax({
