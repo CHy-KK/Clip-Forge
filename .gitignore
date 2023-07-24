@@ -2,4 +2,6 @@ exps/*
 .ipynb_checkpoints/
 nohup.out
 *pyc
+training_data/*
+all_data/*
 __pycache__ 
