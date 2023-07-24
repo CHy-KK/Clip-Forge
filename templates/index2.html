@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>My Page</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="./my_style.css">
+</head>
+
+<body id="body">
+    <!--<h1>My Page</h1>-->
+    <div class="clearfix">
+        <div class="left">
+            <div class="left_top">
+                <h1>My_Page</h1>
+            </div>
+            <div class="left_center" id="buttonApp">
+                <div style="display: flex; flex-direction: row; align-items: center;">
+                    <form id="myForm" action="/submit_form" method="POST"
+                        style="display: flex; flex-direction: row; align-items: center;">
+                        <div style="display: flex; flex-direction: column;">
+                            <input id="message" name="message">
+                        </div>
+                        <div style="display: flex; flex-direction: row;">
+                            <button @click="updateData()" type="submit">Get Embeddings</button>
+                            <!--                        <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>-->
+                            <button onclick="update_voxel()" type="button">Upload Voxel</button>
+                        </div>
+                    </form>
+                </div>
+                <!--            <<button @click="updateData()" type="submit">Get Embeddings</button>-->
+
+            </div>
+            <div class="left_bottom" id="app">
+                <svg width="500" height=500" ref="svg" style="background-image:
+                linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);"></svg>
+                <!--            </div>-->
+            </div>
+        </div>
+        <div class="right">
+            <div class="right_top">
+                <div id="app2">
+                    <svg width="500" height="500" ref="svg2">
+                        <defs>
+                            <linearGradient id="Gradient-x" x1="0" x2="1" y1="0" y2="0">
+                                <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
+                                <stop offset="100%" stop-color="rgba(0, 255, 0, 1)" />
+                            </linearGradient>
+                            <linearGradient id="Gradient-y" x1="0" x2="0" y1="1" y2="0">
+                                <stop offset="0%" stop-color="rgba(0, 0, 0, 1)" />
+                                <stop offset="100%" stop-color="rgba(255, 0, 0, 1)" />
+                            </linearGradient>
+                        </defs>
+                        <rect id="background" width="240" height="240" fill="url(#Gradient-x)" fill-opacity="0.5" />
+                        <rect id="background" width="240" height="240" fill="url(#Gradient-y)" fill-opacity="0.5" x="30"
+                            y="30" />
+                    </svg>
+                </div>
+            </div>
+            <div class="right_bottom">
+                <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
+                <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+            </div>
+        </div>
+    </div>
+    <div id="tooltip"></div>
+    <div id="buttonApp2">
+        <button @click="updateData()">Get Embeddings</button>
+        <button onclick="update_voxel()">Upload Voxel</button>
+        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
+        <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="./Vue_app.js"></script>
+    <script src="./3d.js"></script>
+    <h1>END </h1>
+</body>
+
+</html>

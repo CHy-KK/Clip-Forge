@@ -1,0 +1,139 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+div {
+    margin: 0;
+    padding: 0;
+}
+
+.left .dot {
+    fill: skyblue;
+    transition: fill 0.2s;
+}
+
+.left .dot:hover {
+    fill: orange;
+    r: 15;
+}
+
+.right .dot {
+    fill: steelblue;
+    transition: fill 0.2s;
+}
+
+.right .dot:hover {
+    fill: orange;
+    r: 30;
+}
+
+.axis-label {
+    font-size: 12px;
+}
+
+.chart-title {
+    text-anchor: middle;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+
+.left {
+    overflow: auto;
+    float: left;
+    width: 50%;
+    height: 100%;
+}
+
+.left_top {
+    /* background-color: red; */
+    height: 8vh;
+}
+
+.left_center input,
+.left_center button {
+    margin: 0;
+    /* 删除元素的外边距，使其紧密地拼接在一起 */
+    box-sizing: border-box;
+    /* 使宽度和高度包含元素的内边距和边框，而不仅包含内容的宽度和高度 */
+}
+
+.left_center input {
+    background-color: #F6F5F0;
+    width: 40vh;
+    height: 7vh;
+    border-radius: 10px;
+    border: 4px solid;
+    /* 设置边框宽度 */
+    border-color: steelblue;
+    border-top-right-radius: 0;
+    /* 右上角边框圆角设为0 */
+    border-bottom-right-radius: 0;
+    /* 右下角边框圆角设为0 */
+    border-right: none;
+    /* 删除右边的边框 */
+}
+
+.left_center button {
+    height: 7vh;
+    /* border-radius: 10px; */
+    background-color: skyblue;
+    /* border-left: none; */
+}
+
+.left_center button:first-of-type {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.left_center button:last-of-type {
+    border-left: none;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+
+.left_center {
+    /* background-color: #42b983; */
+    height: 15vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.left_bottom {
+
+    /*background-color: blue;*/
+    height: 77vh;
+}
+
+.right {
+    overflow: auto;
+    float: right;
+    width: 50%;
+    height: 100%;
+}
+
+.right_top {
+    /* background-color: chartreuse; */
+    height: 40vh;
+}
+
+.right_bottom {
+    /* background-color: orange; */
+    height: 60vh;
+}
+
+.clearfix::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+#tooltip {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 5px;
+    font-size: 12px;
+}

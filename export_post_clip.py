@@ -5,6 +5,7 @@ import logging
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.decomposition import PCA 
 import numpy as np
 
 from PIL import Image
@@ -80,8 +81,12 @@ args.device = device
 
 @app.route('/')
 def index():
-  return render_template('index.html')
+  return render_template('index2.html')
 
+@app.route('/initialize_overview', methods=['GET', 'POST'])
+def initialize_overview():
+    pass
+ 
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     total_text_query = request.json
@@ -94,6 +99,7 @@ def get_embeddings_by_text_query():
         print(total_text_query)
         with torch.no_grad():
             num_figs = 1
+            shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
             for text_in in tqdm(total_text_query):
                 ##########
                 text = clip.tokenize([text_in]).to(args.device)
@@ -107,24 +113,29 @@ def get_embeddings_by_text_query():
                 noise = torch.cat([mean_shape, noise], dim=0)
                 decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
                 # shape_embs.append(decoder_embs.detach().cpu().numpy().tolist()[0])
-                shape_embs[text_in] = decoder_embs.detach().cpu().numpy().tolist()[0]
+                shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
                 shape_embs_torch.append(decoder_embs)
+            reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
+            cnt = 0
+            for text_in in total_text_query:
+                shape_embs[text_in] = reduced_shape_embs[cnt]
+                cnt += 1
     else:
         print("no query")
-    print (len(shape_embs_torch))
     return jsonify(shape_embs)
 
 @app.route('/update_voxel', methods=['GET', 'POST'])
 def update_voxel():
-    voxel_data = request.json
+    new_voxel_data = [request.json]
     # print(voxel_data)
-    voxel_data = np.array(voxel_data)
-    print(voxel_data)
-    print(voxel_data.shape)
-    voxel_data = torch.Tensor(voxel_data)
-    # voxel_emb = net.encoder(voxel_data.type(torch.FloatTensor).to(args.device))
-    print(voxel_emb)
-    shape_embs_torch.append(voxel_emb)
+    new_voxel_data = np.array(new_voxel_data)
+    print(new_voxel_data)
+    new_voxel_data = torch.Tensor(new_voxel_data)
+    print(new_voxel_data.shape)
+    new_voxel_emb = net.encoder(new_voxel_data.type(torch.FloatTensor).to(args.device))
+    print(new_voxel_emb)
+    shape_embs_torch.append(new_voxel_emb)
+    # new_reduced = pca.transform(new_voxel_emb)
     return jsonify('')
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上
@@ -159,10 +170,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     # return jsonify([90])
     return jsonify(voxels_out[0].tolist())
 
-##################################### Main and Parser stuff #################################################3
-
-
-
+##################################### Main and Parser stuff #################################################
 
 
 if __name__ == '__main__':
@@ -171,6 +179,8 @@ if __name__ == '__main__':
     global latent_flow_model
     global clip_model
     global shape_embs_torch
+    global pca
+    pca = PCA(n_components=2)
     shape_embs_torch = []
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
