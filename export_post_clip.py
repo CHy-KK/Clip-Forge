@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import sys
 import logging
+import csv
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -29,6 +30,7 @@ from networks import autoencoder, latent_flows
 import clip
 
 from flask import Flask, jsonify, request, render_template
+
 from werkzeug.routing import BaseConverter
 
 app = Flask(__name__)
@@ -85,8 +87,25 @@ def index():
 
 @app.route('/initialize_overview', methods=['GET', 'POST'])
 def initialize_overview():
-    pass
+    shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+    shape_embs = []
+    with open ('init_data.csv', 'r') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            # row: [str: textquery, list: embedding]
+            shape_embs.append([row[0]])
+            shape_embs_list = np.append(shape_embs_list, np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float), axis=0)
+            shape_embs_torch.append(row[1].type(torch.FloatTensor).to(args.device))
+        print (len(shape_embs))
+        print (len(shape_embs_list))
+        print (len(shape_embs_torch))
+        reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
+        for i in range(len(shape_embs_list)):
+            shape_embs[i].append(reduced_shape_embs[i])
+
+    return jsonify(shape_embs)
  
+# 待修改
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     total_text_query = request.json

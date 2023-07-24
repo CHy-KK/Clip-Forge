@@ -1,6 +1,7 @@
 import os
 import os.path as osp
 import logging
+import json
 
 import argparse
 from tqdm import tqdm
@@ -25,6 +26,8 @@ from dataset import shapenet_dataset
 from train_autoencoder import experiment_name, parsing
 from networks import autoencoder, latent_flows
 import clip
+
+
 
 ###################################### Experiment Utils########################################################
 
@@ -53,11 +56,6 @@ def get_clip_model(args):
     #train_cond_embs_length = clip_model.train_cond_embs_length
     vocab_size = clip_model.vocab_size
     #cond_emb_dim  = clip_model.embed_dim
-    #print("Model parameters:", f"{np.sum([int(np.prod(p.shape)) for p in clip_model.parameters()]):,}")
-    print("cond_emb_dim:", cond_emb_dim)
-    print("Input resolution:", input_resolution)
-    #print("train_cond_embs length:", train_cond_embs_length)
-    print("Vocab size:", vocab_size)
     args.n_px = input_resolution
     args.cond_emb_dim = cond_emb_dim
     return args, clip_model
@@ -111,7 +109,7 @@ def get_dataloader(args, split="train", dataset_flag=False):
         if dataset_flag == True:  
             return dataloader, total_shapes, dataset
             
-        return dataloader, total_shapes 
+        return dataloader, total_shapes, dataset
     
     else:
         raise ValueError("Dataset name is not defined {}".format(dataset_name))
@@ -137,36 +135,31 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                
                 query_points = query_points.type(torch.FloatTensor).to(args.device)
                 occ = occ.type(torch.FloatTensor).to(args.device)
-
-                logging.info("datainput=====================================")
-                logging.info(data['voxels'].shape)
-                logging.info(len(data['voxels']))
-                # logging.info(data)
-                logging.info(len(data['voxels'][0]))
-                logging.info(data['voxels'][0].shape)
-                logging.info(len(data['voxels'][0][0]))
-                logging.info(data['voxels'][0][0].shape)
-                logging.info("datainput=====================================")
                 if args.input_type == "Voxel":
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 elif args.input_type == "Pointcloud":
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
             
-                shape_emb = model.encoder(data_input)
-                logging.info("datainput-------------------------------------")
-                logging.info(data_input)
-                logging.info(data_input.size)
-                logging.info("datainput-------------------------------------")
-                image_features = clip_model.encode_image(image)
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
+                # print (shape_emb)
+                batch_idx = 0
+                for emb in shape_emb:
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append(emb)
+                    batch_idx += 1
+                # print("----------------------------------")
+                # for key, value in shape_embedding_record.items():
+                #   print (len(value))
+                # print("----------------------------------")
+                # image_features = clip_model.encode_image(image)
+                # image_features = image_features / image_features.norm(dim=-1, keepdim=True)
                     
-                shape_embeddings.append(shape_emb.detach().cpu().numpy())
-                cond_embeddings.append(image_features.detach().cpu().numpy())
+                # shape_embeddings.append(shape_emb.detach().cpu().numpy())
+                # cond_embeddings.append(image_features.detach().cpu().numpy())
                 #break
-            logging.info("Number of views done: {}/{}".format(i, times))
+        #     logging.info("Number of views done: {}/{}".format(i, times))
             
-        shape_embeddings = np.concatenate(shape_embeddings) 
-        cond_embeddings = np.concatenate(cond_embeddings) 
+        # shape_embeddings = np.concatenate(shape_embeddings) 
+        # cond_embeddings = np.concatenate(cond_embeddings) 
         return shape_embeddings, cond_embeddings
 
 ######################################## Pre-compute stuff ########################################
@@ -276,9 +269,44 @@ def get_local_parser(mode="args"):
     else:
         return parser
 
-    
+
+id2text = {
+  '04256520': 'sofa',
+  '02691156': 'plane',
+  '03636649': 'lamp',
+  '04401088': 'telephone',
+  '03691459': 'speaker',
+  '03001627': 'chair',
+  '02933112': "cabinet",
+  '04379243': 'table',
+  '03211117': 'display',
+  '02958343': 'car',
+  '02828884': 'bench',
+  '04090263': 'rifle',
+  '04530566': 'vessel'
+}
+
+shape_embedding_record = {
+  'sofa':[],
+  'plane':[],
+  'lamp':[],
+  'telephone':[],
+  'speaker':[],
+  'chair':[],
+  'table':[],
+  'display':[],
+  'car':[],
+  'bench':[],
+  'rifle':[],
+  "cabinet":[],
+  'vessel':[]
+}
 
 def main():
+
+    global id2text
+    global shape_embedding_record
+
     args = get_local_parser()
     exp_name = experiment_name(args)
     exp_name_2 = experiment_name2(args)
@@ -319,14 +347,12 @@ def main():
     args, clip_model = get_clip_model(args)
     
     logging.info("#############################")
-    train_dataloader, total_shapes  = get_dataloader(args, split="train")
+    train_dataloader, total_shapes, train_dataset  = get_dataloader(args, split="train")
     args.total_shapes = total_shapes
     logging.info("Train Dataset size: {}".format(total_shapes))
-    val_dataloader, total_shapes_val  = get_dataloader(args, split="val")
+    val_dataloader, total_shapes_val, val_dataset  = get_dataloader(args, split="val")
     logging.info("Test Dataset size: {}".format(total_shapes_val))
     logging.info("#############################")
-    
-    
     
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
@@ -336,53 +362,58 @@ def main():
     logging.info("#############################")
     logging.info("Getting train shape embeddings and condition embedding")
     train_shape_embeddings, train_cond_embeddings = get_condition_embeddings(args, net, clip_model, train_dataloader, times=args.num_views)
-    logging.info("Train Embedding Shape {}, Train Condition Embedding {}".format(train_shape_embeddings.shape, train_cond_embeddings.shape))
-    train_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(train_shape_embeddings), torch.from_numpy(train_cond_embeddings))
-    train_dataloader_new = DataLoader(train_dataset_new, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
+
+    # logging.info("Train Embedding Shape {}, Train Condition Embedding {}".format(train_shape_embeddings.shape, train_cond_embeddings.shape))
+    # train_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(train_shape_embeddings), torch.from_numpy(train_cond_embeddings))
+    # train_dataloader_new = DataLoader(train_dataset_new, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
     
     logging.info("Getting val shape embeddings and condition embedding")
     val_shape_embeddings, val_cond_embeddings = get_condition_embeddings(args, net, clip_model, val_dataloader, times=1)
-    logging.info("Val Embedding Shape {}, Val Condition Embedding {}".format(val_shape_embeddings.shape, val_cond_embeddings.shape))
-    val_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(val_shape_embeddings), torch.from_numpy(val_cond_embeddings))
-    val_dataloader_new = DataLoader(val_dataset_new, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False)
-    logging.info("#############################")
-    
-    latent_flow_network = latent_flows.get_generator(args.emb_dims, args.cond_emb_dim, device, flow_type=args.flow_type, num_blocks=args.num_blocks, num_hidden=args.num_hidden)
-    
-    if args.train_mode == "test":
-        pass
-    else: 
-        optimizer = torch.optim.Adam(latent_flow_network.parameters(), lr=0.00003)
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, args.num_iterations, 0.000001)
-        start_epoch = 0 
 
-        if args.latent_load_checkpoint is not None:
-            checkpoint_dir = args.new_checkpoint_dir + "/{}.pt".format(args.latent_load_checkpoint)
-            checkpoint = torch.load(checkpoint_dir, map_location=args.device)
-            latent_flow_network.load_state_dict(checkpoint['model'])
-            start_epoch = checkpoint['current_epoch']
+    with open('initial_text_query.json', 'w') as f:
+      json.dump(shape_embedding_record, f)
+    
+    # logging.info("Val Embedding Shape {}, Val Condition Embedding {}".format(val_shape_embeddings.shape, val_cond_embeddings.shape))
+    # val_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(val_shape_embeddings), torch.from_numpy(val_cond_embeddings))
+    # val_dataloader_new = DataLoader(val_dataset_new, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False)
+    # logging.info("#############################")
+    
+    # latent_flow_network = latent_flows.get_generator(args.emb_dims, args.cond_emb_dim, device, flow_type=args.flow_type, num_blocks=args.num_blocks, num_hidden=args.num_hidden)
+    
+    # if args.train_mode == "test":
+    #     pass
+    # else: 
+    #     optimizer = torch.optim.Adam(latent_flow_network.parameters(), lr=0.00003)
+    #     scheduler = lr_scheduler.CosineAnnealingLR(optimizer, args.num_iterations, 0.000001)
+    #     start_epoch = 0 
+
+    #     if args.latent_load_checkpoint is not None:
+    #         checkpoint_dir = args.new_checkpoint_dir + "/{}.pt".format(args.latent_load_checkpoint)
+    #         checkpoint = torch.load(checkpoint_dir, map_location=args.device)
+    #         latent_flow_network.load_state_dict(checkpoint['model'])
+    #         start_epoch = checkpoint['current_epoch']
             
             
-        best_loss = 100000 
-        for epoch in range(start_epoch, args.epochs):
-            logging.info("#############################")
+    #     best_loss = 100000 
+    #     for epoch in range(start_epoch, args.epochs):
+    #         logging.info("#############################")
             
-            if (epoch + 1) % 5 == True:
-                if args.text_query is not None:
-                    generate_on_query_text(args, clip_model, net, latent_flow_network)
+    #         if (epoch + 1) % 5 == True:
+    #             if args.text_query is not None:
+    #                 generate_on_query_text(args, clip_model, net, latent_flow_network)
                 
-            train_one_epoch(args, latent_flow_network, train_dataloader_new, optimizer, epoch)   
-            val_loss = val_one_epoch(args, latent_flow_network, val_dataloader_new,  epoch)
+    #         train_one_epoch(args, latent_flow_network, train_dataloader_new, optimizer, epoch)   
+    #         val_loss = val_one_epoch(args, latent_flow_network, val_dataloader_new,  epoch)
             
-            filename = '{}.pt'.format(args.checkpoint_dir + "/last")
-            logging.info("Saving Model........{}".format(filename))
-            torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))
+    #         filename = '{}.pt'.format(args.checkpoint_dir + "/last")
+    #         logging.info("Saving Model........{}".format(filename))
+    #         torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))
 
-            if best_loss > val_loss:
-                best_loss = val_loss
-                filename = '{}.pt'.format(args.checkpoint_dir + "/best")
-                logging.info("Saving Model........{}".format(filename))
-                torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))    
+    #         if best_loss > val_loss:
+    #             best_loss = val_loss
+    #             filename = '{}.pt'.format(args.checkpoint_dir + "/best")
+    #             logging.info("Saving Model........{}".format(filename))
+    #             torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))    
             
 if __name__ == "__main__":
     main()          
