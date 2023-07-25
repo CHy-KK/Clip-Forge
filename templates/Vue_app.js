@@ -28,7 +28,7 @@ new Vue({
     },
     methods: {
         sendData() {
-            // 发送二维数据到事件总线
+            // 发送二维数据到事件总线用于更新第二个散点图
             EventBus.$emit('data-updated', data);
         },
         updateScales() {
@@ -93,7 +93,7 @@ new Vue({
             this.drawDots();
         },
         updateData() {
-            get_embeddings_by_text_query((data) => {
+            initialize_overview((data) => {
                 this.data = data.map(item => ({ x: item[1][0], y: item[1][1] }));
                 this.texts = data.map(item => item[0]);
                 this.updateScales();
@@ -222,7 +222,7 @@ new Vue({
                             this.clicks = 0;
                         }
                     }
-                    console.log(d);
+                    // console.log(d);
                 })
 
             this.svg.append("g")
