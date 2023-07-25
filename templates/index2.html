@@ -8,7 +8,6 @@
 </head>
 
 <body id="body">
-    <!--<h1>My Page</h1>-->
     <div class="clearfix">
         <div class="left">
             <div class="left_top">
@@ -22,9 +21,9 @@
                             <input id="message" name="message">
                         </div>
                         <div style="display: flex; flex-direction: row;">
-                            <button @click="updateData()" type="submit">Get Embeddings</button>
+                            <button onclick="get_embeddings_by_text_query()" type="submit">Get Embeddings</button>
+                            <button @click="updateData()" type="button">Initialize Overview</button>
                             <!--                        <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>-->
-                            <button onclick="update_voxel()" type="button">Upload Voxel</button>
                         </div>
                     </form>
                 </div>
@@ -34,7 +33,6 @@
             <div class="left_bottom" id="app">
                 <svg width="500" height=500" ref="svg" style="background-image:
                 linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);"></svg>
-                <!--            </div>-->
             </div>
         </div>
         <div class="right">
@@ -58,15 +56,18 @@
                 </div>
             </div>
             <div class="right_bottom">
-                <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
-                <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+                <div id="canvas-container"></div>
+                <div class="button-group">
+                    <button onclick="update_voxel()" class="circle-button">Upload Voxel</button>
+                    <button onclick="get_voxel(0.3, 0, 0, 1, 2)" class="circle-button">Get Voxel</button>
+                    <button onclick="get_voxel(0, 0, 4)" class="circle-button">Get Voxel2</button>
+                </div>
             </div>
         </div>
     </div>
-    <div id="tooltip"></div>
     <div id="buttonApp2">
         <button @click="updateData()">Get Embeddings</button>
-        <button onclick="update_voxel()">Upload Voxel</button>
+
         <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
         <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
     </div>
