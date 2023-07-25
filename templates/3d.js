@@ -1,6 +1,6 @@
 // Base Settings
-const width = 600;
-const height = 600;
+const width = 400;
+const height = 400;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
 const radius = 100;
@@ -13,7 +13,8 @@ console.log(camera.position)
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
 renderer.setClearColor(0x808080);
-document.body.appendChild(renderer.domElement);
+const container = document.getElementById('canvas-container');
+container.appendChild(renderer.domElement);
 
 // Light Settings
 const light = new THREE.AmbientLight(0xbbbbbb); // soft white light
@@ -63,7 +64,7 @@ function render() {
 
 render();
 
-function initialize_overview() {
+function initialize_overview(callback) {
     $.ajax({
         url: '/initialize_overview',
         type: 'POST',
@@ -71,11 +72,12 @@ function initialize_overview() {
         success: function (data) {
             console.log("success get embedding");
             console.log(data);
+            callback(data)
         }
     });
 }
 
-function get_embeddings_by_text_query(callback) {
+function get_embeddings_by_text_query() {
     const mylist = ["plane", "car", "truck", "rocket"];
 
     $.ajax({
@@ -86,10 +88,11 @@ function get_embeddings_by_text_query(callback) {
         success: function (data) {
             console.log("success get embedding");
             console.log(data);
-            const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
-            callback(coordinates);
+            //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
+            //callback(coordinates);
         }
     });
+    event.preventDefault();
 }
 
 let voxel_data = []
