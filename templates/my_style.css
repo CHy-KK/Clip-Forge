@@ -10,6 +10,7 @@ div {
 
 .left .dot {
     fill: skyblue;
+    cursor: pointer;
     transition: fill 0.2s;
 }
 
@@ -19,6 +20,7 @@ div {
 }
 
 .right .dot {
+    cursor: pointer;
     fill: steelblue;
     transition: fill 0.2s;
 }
@@ -53,6 +55,7 @@ div {
 
 .left_center input,
 .left_center button {
+    cursor: pointer;
     margin: 0;
     /* 删除元素的外边距，使其紧密地拼接在一起 */
     box-sizing: border-box;
@@ -77,9 +80,7 @@ div {
 
 .left_center button {
     height: 7vh;
-    /* border-radius: 10px; */
     background-color: skyblue;
-    /* border-left: none; */
 }
 
 .left_center button:first-of-type {
@@ -95,7 +96,6 @@ div {
 
 
 .left_center {
-    /* background-color: #42b983; */
     height: 15vh;
     display: flex;
     justify-content: center;
@@ -103,8 +103,6 @@ div {
 }
 
 .left_bottom {
-
-    /*background-color: blue;*/
     height: 77vh;
 }
 
@@ -116,12 +114,10 @@ div {
 }
 
 .right_top {
-    /* background-color: chartreuse; */
     height: 40vh;
 }
 
 .right_bottom {
-    /* background-color: orange; */
     height: 60vh;
 }
 
@@ -131,9 +127,30 @@ div {
     clear: both;
 }
 
-#tooltip {
-    background-color: rgba(0, 0, 0, 0.8);
-    color: #fff;
-    padding: 5px;
-    font-size: 12px;
+#canvas-container {
+    display: flex;
+    justify-content: center;
+    flex: 1;
+    align-items: center;
+}
+
+.circle-button {
+    border: none;
+    color: white;
+    background-color: #4CAF50;
+    padding: 20px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    flex: 1;
+    align-items: center;
 }
