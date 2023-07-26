@@ -228,12 +228,14 @@
 
         <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
         <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+        <input type="file" onchange="upload_file(event)"/>  
+        <button onclick="save_file()">保存为 JSON 文件</button>  
     </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script>
-        var EventBus = new Vue();
+        let EventBus = new Vue();
         new Vue({
             el: '#app',
             data() {
@@ -516,6 +518,7 @@
         });
     </script>
     <script>
+        /** 3D VOXEL RENDERER **/
         // Base Settings
         const width = 400;
         const height = 400;
@@ -582,6 +585,44 @@
 
         render();
 
+        renderer.domElement.addEventListener('mousedown', function (event) {
+            isDragging = true;
+            prevX = event.offsetX;
+            prevY = event.offsetY;
+            curX = event.offsetX;
+            curY = event.offsetY;
+        })
+
+        renderer.domElement.addEventListener('mousemove', function (event) {
+            if (isDragging) {
+                curX = event.offsetX;
+                curY = event.offsetY;
+            }
+        })
+
+        renderer.domElement.addEventListener('mouseup', function (event) {
+            isDragging = false;
+        })
+
+        function update_scene(voxel) {
+            for (let i = 0; i < scene.children.length;) {
+                if (scene.children[i] instanceof THREE.Mesh)
+                    scene.remove(scene.children[i]);
+                else i++;
+            }
+            const meshes = new THREE.InstancedMesh(geometry, material, voxels.length);
+            const matrix = new THREE.Matrix4();
+            for (let i = 0; i < voxels.length; i++) {
+                matrix.setPosition(voxels[i][0], voxels[i][1], voxels[i][2]);
+                meshes.setMatrixAt(i, matrix);
+
+            }
+            scene.add(meshes);
+        }
+    </script>
+
+    <script>
+        /** BACK END API **/
         function initialize_overview(callback) {
             $.ajax({
                 url: '/initialize_overview',
@@ -613,7 +654,8 @@
             event.preventDefault();
         }
 
-        let voxel_data = []
+        let Gvoxel_data = [];
+        let Gvoxel_name = str();
 
         function update_voxel() {
             let voxel32 = []
@@ -622,8 +664,8 @@
                 for (let j = 0; j < 64; j += 2) {
                     tmp2 = []
                     for (let k = 0; k < 64; k += 2) {
-                        if (Number(voxel_data[i][j][k]) + Number(voxel_data[i + 1][j][k]) + Number(voxel_data[i][j + 1][k]) + Number(voxel_data[i + 1][j + 1][k])
-                            + Number(voxel_data[i][j][k + 1]) + Number(voxel_data[i + 1][j][k + 1]) + Number(voxel_data[i][j + 1][k + 1]) + Number(voxel_data[i + 1][j + 1][k + 1]) >= 3)
+                        if (Number(Gvoxel_data[i][j][k]) + Number(Gvoxel_data[i + 1][j][k]) + Number(Gvoxel_data[i][j + 1][k]) + Number(Gvoxel_data[i + 1][j + 1][k])
+                            + Number(Gvoxel_data[i][j][k + 1]) + Number(Gvoxel_data[i + 1][j][k + 1]) + Number(Gvoxel_data[i][j + 1][k + 1]) + Number(Gvoxel_data[i + 1][j + 1][k + 1]) >= 3)
                             tmp2.push(true)
                         else
                             tmp2.push(false)
@@ -655,13 +697,7 @@
                 contentType: 'application/json',
                 data: JSON.stringify(''),
                 success: function (data) {
-                    voxel_data = data;
-                    console.log(scene.children);
-                    for (let i = 0; i < scene.children.length;) {
-                        if (scene.children[i] instanceof THREE.Mesh)
-                            scene.remove(scene.children[i]);
-                        else i++;
-                    }
+                    Gvoxel_data = data;
                     let voxels = [];
                     for (let x = 0; x < 64; x++) {
                         for (let y = 0; y < 64; y++) {
@@ -671,35 +707,62 @@
                             }
                         }
                     }
-                    const meshes = new THREE.InstancedMesh(geometry, material, voxels.length);
-                    const matrix = new THREE.Matrix4();
-                    for (let i = 0; i < voxels.length; i++) {
-                        matrix.setPosition(voxels[i][0], voxels[i][1], voxels[i][2]);
-                        meshes.setMatrixAt(i, matrix);
-
-                    }
-                    scene.add(meshes);
+                    Gvoxel_name = `voxel${idx0}-${idx1}-${idx2}-${idx3}as${xval}-${yval}`;
+                    update_scene(voxels)
                 }
             });
+        }
 
-            renderer.domElement.addEventListener('mousedown', function (event) {
-                isDragging = true;
-                prevX = event.offsetX;
-                prevY = event.offsetY;
-                curX = event.offsetX;
-                curY = event.offsetY;
-            })
+        // TODO:正常逻辑应该是，用户上传voxel，然后先在网页端展示，然后再看是否发送到后端，不要直接发送给后端
+        function upload_file(event) {
+            let selectedFile = event.target.files[0];  
+            if (selectedFile) {  
+                console.log('选择的文件:', selectedFile);  
+                let fileName = selectedFile.name;
+                let fileExtension = fileName.split('.').pop().toLowerCase();
 
-            renderer.domElement.addEventListener('mousemove', function (event) {
-                if (isDragging) {
-                    curX = event.offsetX;
-                    curY = event.offsetY;
+                if (fileExtension == 'json') {
+                    console.log("json");
+                    let fileReader = new FileReader();
+                    fileReader.onload = function(event) {
+                        let fileContent = event.target.result;  
+                        try {  
+                            let jsonObject = JSON.parse(fileContent);  
+                            // let name = jsonObject.name;  
+                            // let dim = jsonObject.do,;  
+                            // let data = jsonObject.data;  
+                        
+                        
+                        } catch (error) {  
+                            console.log('无法解析 JSON 文件:', error);  
+                        }  
+                    }
                 }
-            })
+                else {
+                    console.log("not json");
+                }
+            }  
+        }
 
-            renderer.domElement.addEventListener('mouseup', function (event) {
-                isDragging = false;
-            })
+        // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
+        function save_file() {
+            let voxel_json= {
+                name: Gvoxel_name,
+                dim: 64,
+                data: Gvoxel_data
+            };
+  
+            let jsonData = JSON.stringify(dataArray, null, 2);  
+            
+            let blob = new Blob([jsonData], { type: 'application/json' });  
+            let url = URL.createObjectURL(blob);  
+            
+            let a = document.createElement('a');  
+            a.href = url;  
+            a.download = `${Gvoxel_name}.json`;  
+            a.click();  
+            
+            URL.revokeObjectURL(url);  
         }
     </script>
     <!-- <script src="./javascript/Vue_app.js"></script> -->

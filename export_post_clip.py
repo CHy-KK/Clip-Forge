@@ -94,8 +94,9 @@ def initialize_overview():
         for row in reader:
             # row: [str: textquery, list: embedding]
             shape_embs.append([row[0]])
-            shape_embs_list = np.append(shape_embs_list, np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float), axis=0)
-            shape_embs_torch.append(row[1].type(torch.FloatTensor).to(args.device))
+            shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
+            shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
+            shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor))
         print (len(shape_embs))
         print (len(shape_embs_list))
         print (len(shape_embs_torch))
