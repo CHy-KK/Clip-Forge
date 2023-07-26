@@ -88,6 +88,8 @@ function get_embeddings_by_text_query() {
         success: function (data) {
             console.log("success get embedding");
             console.log(data);
+
+            // [t, p]
             //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
             //callback(coordinates);
         }

@@ -108,37 +108,34 @@ def initialize_overview():
 # 待修改
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
-    total_text_query = request.json
+    text_in = request.json
     global shape_embs_torch
-    shape_embs_torch = []
-    shape_embs = dict()
+    shape_embs = []
     clip_model.eval()
     latent_flow_model.eval()
-    if (total_text_query != None):
-        print(total_text_query)
+    if (text_in != None):
+        print(text_in)
         with torch.no_grad():
             num_figs = 1
             shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
-            for text_in in tqdm(total_text_query):
-                ##########
-                text = clip.tokenize([text_in]).to(args.device)
-                text_features = clip_model.encode_text(text)
-                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                ###########
-                torch.manual_seed(5)
-                mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
-                noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
-                noise = torch.clip(noise, min=-1, max=1)
-                noise = torch.cat([mean_shape, noise], dim=0)
-                decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
-                # shape_embs.append(decoder_embs.detach().cpu().numpy().tolist()[0])
-                shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
-                shape_embs_torch.append(decoder_embs)
+            ##########
+            text = clip.tokenize([text_in]).to(args.device)
+            text_features = clip_model.encode_text(text)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            ###########
+            torch.manual_seed(5)
+            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+            noise = torch.clip(noise, min=-1, max=1)
+            noise = torch.cat([mean_shape, noise], dim=0)
+            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
+
+
+            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy())
+            shape_embs_torch.append(decoder_embs)
+            shape_embs = [text_in, new_reduced]
+
             reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
-            cnt = 0
-            for text_in in total_text_query:
-                shape_embs[text_in] = reduced_shape_embs[cnt]
-                cnt += 1
     else:
         print("no query")
     return jsonify(shape_embs)
@@ -148,14 +145,16 @@ def update_voxel():
     new_voxel_data = [request.json]
     # print(voxel_data)
     new_voxel_data = np.array(new_voxel_data)
-    print(new_voxel_data)
+    # print(new_voxel_data)
     new_voxel_data = torch.Tensor(new_voxel_data)
-    print(new_voxel_data.shape)
+    # print(new_voxel_data.shape)
     new_voxel_emb = net.encoder(new_voxel_data.type(torch.FloatTensor).to(args.device))
-    print(new_voxel_emb)
+    # print(new_voxel_emb)
     shape_embs_torch.append(new_voxel_emb)
-    # new_reduced = pca.transform(new_voxel_emb)
-    return jsonify('')
+    new_reduced = pca.transform(new_voxel_emb.detach().cpu().numpy())
+    shape_emb = [voxel_name, new_reduced]
+    
+    return jsonify(shape_emb)
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
