@@ -128,6 +128,7 @@
 
         .right_top {
             height: 40vh;
+            display: flex;
         }
 
         .right_bottom {
@@ -166,6 +167,16 @@
             justify-content: center;
             flex: 1;
             align-items: center;
+        }
+
+        #app2 {
+            position: relative;
+        }
+
+        #selectedDataDiv {
+            position: absolute;
+            top: 0;
+            right: 0;
         }
     </style>
 </head>
@@ -216,7 +227,7 @@
                         <rect id="background" width="240" height="240" fill="url(#Gradient-y)" fill-opacity="0.5" x="30"
                             y="30" />
                     </svg>
-                    <div>
+                    <div id="selectedDataDiv">
                         Selected Data:
                         <span>{{ selectedData }}</span>
                     </div>
