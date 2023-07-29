@@ -112,6 +112,11 @@
 
         .left_bottom {
             height: 77vh;
+            display: flex;
+            justify-content: center;
+            /* 水平居中 */
+            align-items: center;
+            /* 垂直居中 */
         }
 
         .right {
@@ -211,6 +216,10 @@
                         <rect id="background" width="240" height="240" fill="url(#Gradient-y)" fill-opacity="0.5" x="30"
                             y="30" />
                     </svg>
+                    <div>
+                        Selected Data:
+                        <span>{{ selectedData }}</span>
+                    </div>
                 </div>
             </div>
             <div class="right_bottom">
@@ -228,8 +237,8 @@
 
         <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
         <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
-        <input type="file" onchange="upload_file(event)"/>  
-        <button onclick="save_file()">保存为 JSON 文件</button>  
+        <input type="file" onchange="upload_file(event)" />
+        <button onclick="save_file()">保存为 JSON 文件</button>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
@@ -348,7 +357,8 @@
                     dataArr: [],
                     svg: null,
                     data: [],
-                    timer: null
+                    timer: null,
+                    selectedData: null
                 };
             },
             mounted() {
@@ -426,6 +436,15 @@
                     })
                         .on("click", (event, d, i) => {
                             if (!this.clicks) { // 如果没有点击过
+                                if (d.x === 0 && d.y === 0) {
+                                    this.selectedData = this.dataArr[0];
+                                } else if (d.x === 1 && d.y === 0) {
+                                    this.selectedData = this.dataArr[1];
+                                } else if (d.x === 0 && d.y === 1) {
+                                    this.selectedData = this.dataArr[2];
+                                } else if (d.x === 1 && d.y === 1) {
+                                    this.selectedData = this.dataArr[3];
+                                }
                                 this.clicks = 1;
                                 this.clickTimer = setTimeout(() => {
                                     this.clicks = 0;
@@ -450,10 +469,10 @@
                                     }
 
                                     const indexToDelete = this.data.findIndex(item => item.x === pointToDelete.x && item.y === pointToDelete.y);
-
+                                    const indexToDeleteArr = this.data.findIndex(item => item.x === d.x && item.y === d.y);
                                     if (indexToDelete !== -1) {
+                                        this.dataArr.splice(indexToDeleteArr, 1); // 删除对应索引处的数据
                                         this.data.splice(indexToDelete, 1);
-                                        this.dataArr.splice(indexToDelete, 1); // 删除对应索引处的数据
                                         this.svg.selectAll("circle").data(this.data).exit().remove();
                                     }
                                     this.clicks = 0;
@@ -495,15 +514,6 @@
                 clearData() {
                     this.data = [];
                     console.log('data cleared');
-                },
-                showTooltip(event, d) {
-                    const tooltip = document.getElementById("tooltip");
-                    tooltip.style.visibility = "visible";
-                    tooltip.innerHTML = `X: ${d.x}, Y: ${d.y}`;
-
-                    const [x, y] = d3.pointer(event);
-                    tooltip.style.left = `${x}px`;
-                    tooltip.style.top = `${y}px`;
                 },
             }
         });
@@ -715,58 +725,56 @@
 
         // TODO:正常逻辑应该是，用户上传voxel，然后先在网页端展示，然后再看是否发送到后端，不要直接发送给后端
         function upload_file(event) {
-            let selectedFile = event.target.files[0];  
-            if (selectedFile) {  
-                console.log('选择的文件:', selectedFile);  
+            let selectedFile = event.target.files[0];
+            if (selectedFile) {
+                console.log('选择的文件:', selectedFile);
                 let fileName = selectedFile.name;
                 let fileExtension = fileName.split('.').pop().toLowerCase();
 
                 if (fileExtension == 'json') {
                     console.log("json");
                     let fileReader = new FileReader();
-                    fileReader.onload = function(event) {
-                        let fileContent = event.target.result;  
-                        try {  
-                            let jsonObject = JSON.parse(fileContent);  
+                    fileReader.onload = function (event) {
+                        let fileContent = event.target.result;
+                        try {
+                            let jsonObject = JSON.parse(fileContent);
                             // let name = jsonObject.name;  
                             // let dim = jsonObject.do,;  
                             // let data = jsonObject.data;  
-                        
-                        
-                        } catch (error) {  
-                            console.log('无法解析 JSON 文件:', error);  
-                        }  
+
+
+                        } catch (error) {
+                            console.log('无法解析 JSON 文件:', error);
+                        }
                     }
                 }
                 else {
                     console.log("not json");
                 }
-            }  
+            }
         }
 
         // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
         function save_file() {
-            let voxel_json= {
+            let voxel_json = {
                 name: Gvoxel_name,
                 dim: 64,
                 data: Gvoxel_data
             };
-  
-            let jsonData = JSON.stringify(dataArray, null, 2);  
-            
-            let blob = new Blob([jsonData], { type: 'application/json' });  
-            let url = URL.createObjectURL(blob);  
-            
-            let a = document.createElement('a');  
-            a.href = url;  
-            a.download = `${Gvoxel_name}.json`;  
-            a.click();  
-            
-            URL.revokeObjectURL(url);  
+
+            let jsonData = JSON.stringify(dataArray, null, 2);
+
+            let blob = new Blob([jsonData], { type: 'application/json' });
+            let url = URL.createObjectURL(blob);
+
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = `${Gvoxel_name}.json`;
+            a.click();
+
+            URL.revokeObjectURL(url);
         }
     </script>
-    <!-- <script src="./javascript/Vue_app.js"></script> -->
-    <!-- <script src="./javascript/3d.js"></script> -->
     <h1>END </h1>
 </body>
 
