@@ -3,6 +3,9 @@ import os.path as osp
 import sys
 import logging
 import csv
+import io
+import base64
+
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -13,6 +16,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas  
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -81,6 +85,31 @@ args.device = device
 # latent_flow_model = None
 # clip_model = None
 
+def gen_image(voxels):
+    voxels = np.asarray(voxels)
+    fig = plt.figure(figsize=(40,20))
+    
+    ax = fig.add_subplot(111, projection=Axes3D.name)
+    voxels = voxels.transpose(2, 0, 1)
+
+    ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
+    ax.set_xlabel('Z')
+    ax.set_ylabel('X')
+    ax.set_zlabel('Y')
+    # Hide grid lines
+    plt.grid(False)
+    plt.axis('off')
+
+    canvas = FigureCanvas(fig)  
+    stream = io.BytesIO()
+    canvas.print_png(stream)
+    image_data = stream.getvalue()
+    encoded_image = base64.b64encode(image_data).decode('utf-8')  
+    plt.close(fig) 
+    stream.close()
+    return encoded_image
+
+
 @app.route('/')
 def index():
   return render_template('index2.html')
@@ -91,22 +120,31 @@ def initialize_overview():
     shape_embs = []
     with open ('init_data.csv', 'r') as f:
         reader = csv.reader(f)
-        for row in reader:
+        for row in tqdm(reader):
             # row: [str: textquery, list: embedding]
             shape_embs.append([row[0]])
             shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
             shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
-            shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor))
+            shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
+            
         print (len(shape_embs))
         print (len(shape_embs_list))
         print (len(shape_embs_torch))
         reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
-        for i in range(len(shape_embs_list)):
+        num_figs = 1
+        for i in tqdm(range(len(shape_embs_list))):
             shape_embs[i].append(reduced_shape_embs[i])
+            if (i == 0):
+                shape = (64, 64, 64)
+                p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+                query_points = p.expand(num_figs, *p.size())
+                out = net.decoding(shape_embs_torch[0], query_points)
+                voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
+                img = gen_image(voxels_out[0])
+                shape_embs[i].append(img)
 
     return jsonify(shape_embs)
  
-# 待修改
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     text_in = request.json

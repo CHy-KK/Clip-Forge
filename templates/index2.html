@@ -248,7 +248,11 @@
 
         <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
         <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
-        <input type="file" onchange="upload_file(event)" />
+        <button onclick="upload_click()">
+            上传文件
+            <input type="file" onchange="upload_file(event)" id="input_file" style="display: none;"/>
+        </button>
+        
         <button onclick="save_file()">保存为 JSON 文件</button>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
@@ -541,6 +545,10 @@
     <script>
         /** 3D VOXEL RENDERER **/
         // Base Settings
+        let Gvoxel_data = [];
+        let Gvoxel_name = "";
+        let Gvoxel_list = [];
+
         const width = 400;
         const height = 400;
         const scene = new THREE.Scene();
@@ -653,6 +661,7 @@
                     console.log("success get embedding");
                     console.log(data);
                     callback(data)
+                    Gvoxel_list = data;
                 }
             });
         }
@@ -668,6 +677,7 @@
                 success: function (data) {
                     console.log("success get embedding");
                     console.log(data);
+                    Gvoxel_list.push(data)
                     //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
                     //callback(coordinates);
                 }
@@ -675,18 +685,17 @@
             event.preventDefault();
         }
 
-        let Gvoxel_data = [];
-        let Gvoxel_name = str();
+    
 
-        function update_voxel() {
+        function update_voxel(voxel64) {
             let voxel32 = []
             for (let i = 0; i < 64; i += 2) {
                 tmp1 = []
                 for (let j = 0; j < 64; j += 2) {
                     tmp2 = []
                     for (let k = 0; k < 64; k += 2) {
-                        if (Number(Gvoxel_data[i][j][k]) + Number(Gvoxel_data[i + 1][j][k]) + Number(Gvoxel_data[i][j + 1][k]) + Number(Gvoxel_data[i + 1][j + 1][k])
-                            + Number(Gvoxel_data[i][j][k + 1]) + Number(Gvoxel_data[i + 1][j][k + 1]) + Number(Gvoxel_data[i][j + 1][k + 1]) + Number(Gvoxel_data[i + 1][j + 1][k + 1]) >= 3)
+                        if (Number(voxel64[i][j][k]) + Number(voxel64[i + 1][j][k]) + Number(voxel64[i][j + 1][k]) + Number(voxel64[i + 1][j + 1][k])
+                            + Number(voxel64[i][j][k + 1]) + Number(voxel64[i + 1][j][k + 1]) + Number(voxel64[i][j + 1][k + 1]) + Number(voxel64[i + 1][j + 1][k + 1]) >= 3)
                             tmp2.push(true)
                         else
                             tmp2.push(false)
@@ -734,7 +743,12 @@
             });
         }
 
-        // TODO:正常逻辑应该是，用户上传voxel，然后先在网页端展示，然后再看是否发送到后端，不要直接发送给后端
+        function upload_click() {
+            let inputEle = document.getElementById("input_file");
+            inputEle.click();
+        }
+
+        // 算了直接把上传的发给后端吧，并且加入全局的voxel列表
         function upload_file(event) {
             let selectedFile = event.target.files[0];
             if (selectedFile) {
@@ -747,17 +761,25 @@
                     let fileReader = new FileReader();
                     fileReader.onload = function (event) {
                         let fileContent = event.target.result;
+                        let name;  
+                        let dim;  
+                        let data;  
                         try {
                             let jsonObject = JSON.parse(fileContent);
-                            // let name = jsonObject.name;  
-                            // let dim = jsonObject.do,;  
-                            // let data = jsonObject.data;  
-
-
+                            name = jsonObject.name;  
+                            dim = jsonObject.dim;  
+                            data = jsonObject.data;  
+                            console.log(name);
+                            console.log(dim);
+                            console.log(data);
+                            if (data.length != 64 || data[0].length != 64 || data[0][0].length != 64) throw "体素模型维度错误，需要为64";
+                            update_voxel(data);
                         } catch (error) {
                             console.log('无法解析 JSON 文件:', error);
                         }
+
                     }
+                    fileReader.readAsText(selectedFile);
                 }
                 else {
                     console.log("not json");
@@ -767,13 +789,16 @@
 
         // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
         function save_file() {
+            Gvoxel_name = 'testFile';
+            Gvoxel_data = [[[1]]]
             let voxel_json = {
                 name: Gvoxel_name,
-                dim: 64,
+                // dim: 64,
+                dim: 1,
                 data: Gvoxel_data
             };
 
-            let jsonData = JSON.stringify(dataArray, null, 2);
+            let jsonData = JSON.stringify(voxel_json, null, 2);
 
             let blob = new Blob([jsonData], { type: 'application/json' });
             let url = URL.createObjectURL(blob);
