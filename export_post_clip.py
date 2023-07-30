@@ -37,6 +37,9 @@ from flask import Flask, jsonify, request, render_template
 
 from werkzeug.routing import BaseConverter
 
+from PIL import Image
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, RandomResizedCrop, ColorJitter
+
 app = Flask(__name__)
 
 
@@ -143,6 +146,54 @@ def initialize_overview():
                 img = gen_image(voxels_out[0])
                 shape_embs[i].append(img)
 
+    return jsonify(shape_embs)
+  
+@app.route('/get_embeddings_by_image', method=['GET', 'POST'])
+def get_embeddings_by_image():
+  
+    global shape_embs_torch
+    # 读取image的方式需要测试
+    image_data = request.files['data']
+    image_name = request.files['name']
+    image = Image.open(image_data).convert('RGB')
+
+    transform_image = Compose([
+        Resize(n_px, interpolation=Image.BICUBIC),
+        CenterCrop(n_px),
+        lambda image: image.convert("RGB"),
+        ToTensor(),
+        Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+    ])
+    
+    image = transform_image(image)
+    
+    shape_embs = []
+    clip_model.eval()
+    latent_flow_model.eval()
+    if (image != None):
+        with torch.no_grad():
+            num_figs = 1
+            shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+            ##########
+            image = image_file.type(torch.FloatTensor).to(args.device)
+            image_features = clip_model.encode_image(image)
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            ###########
+            torch.manual_seed(5)
+            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+            noise = torch.clip(noise, min=-1, max=1)
+            noise = torch.cat([mean_shape, noise], dim=0)
+            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=image_features.repeat(num_figs,1))
+
+
+            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy())
+            shape_embs_torch.append(decoder_embs)
+            shape_embs = [image_name, new_reduced]
+
+            reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
+    else:
+        print("no query")
     return jsonify(shape_embs)
  
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])

@@ -248,12 +248,17 @@
 
         <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
         <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
-        <button onclick="upload_click()">
-            上传文件
-            <input type="file" onchange="upload_file(event)" id="input_file" style="display: none;"/>
+        <button onclick="upload_voxel_click()">
+            上传体素
+            <input type="file" onchange="upload_voxel(event)" id="input_voxel" style="display: none;"/>
         </button>
+
+        <button onclick="upload_image_click()">
+            上传图片
+            <input type="file" onchange="upload_image(event)" id="input_image" style="display: none;"/>
+        </button> 
         
-        <button onclick="save_file()">保存为 JSON 文件</button>
+        <button onclick="save_file()">保存为当前体素 JSON 文件</button>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
@@ -683,9 +688,7 @@
                 }
             });
             event.preventDefault();
-        }
-
-    
+        }    
 
         function update_voxel(voxel64) {
             let voxel32 = []
@@ -715,6 +718,7 @@
                 success: function (data) {
                     console.log("success get embedding");
                     console.log(data);
+                    Gvoxel_list.push(data)
                 }
             });
         }
@@ -743,13 +747,13 @@
             });
         }
 
-        function upload_click() {
-            let inputEle = document.getElementById("input_file");
+        function upload_voxel_click() {
+            let inputEle = document.getElementById("input_voxel");
             inputEle.click();
         }
 
         // 算了直接把上传的发给后端吧，并且加入全局的voxel列表
-        function upload_file(event) {
+        function upload_voxel(event) {
             let selectedFile = event.target.files[0];
             if (selectedFile) {
                 console.log('选择的文件:', selectedFile);
@@ -785,6 +789,30 @@
                     console.log("not json");
                 }
             }
+        }
+
+        function upload_image_click() {
+            let inputEle = document.getElementById("input_image");
+            inputEle.click();
+        }
+
+        function upload_image(event) {
+          let formData = new FormData(); 
+
+          let selectedFile = event.target.files[0];
+          formData.append('data', selectedFile)
+          formData.append('name', selectedFile.name)
+          $.ajax({  
+              url: '/send_image',  
+              type: 'POST',  
+              data: formData,  
+              contentType: false,  // 不设置contentType  
+              processData: false,  // 不处理数据  
+              success: function(data) {  
+                  console.log(data);  
+                  Gvoxel_list.push(data)
+              }  
+          });  
         }
 
         // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}

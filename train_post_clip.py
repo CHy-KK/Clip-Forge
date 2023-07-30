@@ -150,9 +150,12 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                 # for key, value in shape_embedding_record.items():
                 #   print (len(value))
                 # print("----------------------------------")
-                # image_features = clip_model.encode_image(image)
-                # image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                    
+                print(image)
+                print(image.shape)
+
+                image_features = clip_model.encode_image(image)
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                print(image_features.shape)
                 # shape_embeddings.append(shape_emb.detach().cpu().numpy())
                 # cond_embeddings.append(image_features.detach().cpu().numpy())
                 #break
