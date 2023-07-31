@@ -112,13 +112,13 @@ def gen_image(voxels):
     stream.close()
     return encoded_image
 
-
 @app.route('/')
 def index():
   return render_template('index2.html')
 
 @app.route('/initialize_overview', methods=['GET', 'POST'])
 def initialize_overview():
+    global shape_embs_torch
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
     shape_embs = []
     with open ('init_data.csv', 'r') as f:
@@ -148,14 +148,15 @@ def initialize_overview():
 
     return jsonify(shape_embs)
   
-@app.route('/get_embeddings_by_image', method=['GET', 'POST'])
+@app.route('/get_embeddings_by_image', methods=['POST'])
 def get_embeddings_by_image():
   
     global shape_embs_torch
     # 读取image的方式需要测试
-    image_data = request.files['data']
-    image_name = request.files['name']
-    image = Image.open(image_data).convert('RGB')
+    image_file = request.files.get('image')
+    image_name = request.form.get('name')
+    image_data = Image.open(image_file).convert('RGB')
+    n_px = 224
 
     transform_image = Compose([
         Resize(n_px, interpolation=Image.BICUBIC),
@@ -165,17 +166,17 @@ def get_embeddings_by_image():
         Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
     ])
     
-    image = transform_image(image)
-    
+    image_tensor = transform_image(image_data).unsqueeze(0) 
+    print(image_tensor.shape)
     shape_embs = []
     clip_model.eval()
     latent_flow_model.eval()
-    if (image != None):
+    if (image_tensor != None):
         with torch.no_grad():
             num_figs = 1
             shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
             ##########
-            image = image_file.type(torch.FloatTensor).to(args.device)
+            image = image_tensor.type(torch.FloatTensor).to(args.device)
             image_features = clip_model.encode_image(image)
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
             ###########
@@ -187,14 +188,16 @@ def get_embeddings_by_image():
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=image_features.repeat(num_figs,1))
 
 
+            print(decoder_embs.shape)
             new_reduced = pca.transform(decoder_embs.detach().cpu().numpy())
             shape_embs_torch.append(decoder_embs)
             shape_embs = [image_name, new_reduced]
 
             reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
     else:
-        print("no query")
-    return jsonify(shape_embs)
+        print("no image")
+    # return jsonify(shape_embs)
+    return jsonify([0])
  
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
@@ -275,7 +278,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
             res_emb = torch.lerp(torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval), torch.lerp(shape_embs_torch[idx2], shape_embs_torch[idx3], xval), yval)
         out = net.decoding(res_emb, query_points)
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-    # return jsonify([90])
+
     return jsonify(voxels_out[0].tolist())
 
 ##################################### Main and Parser stuff #################################################

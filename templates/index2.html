@@ -800,10 +800,12 @@
           let formData = new FormData(); 
 
           let selectedFile = event.target.files[0];
-          formData.append('data', selectedFile)
-          formData.append('name', selectedFile.name)
+          
+          formData.append('image', selectedFile);
+          formData.append('name', selectedFile.name);
+          
           $.ajax({  
-              url: '/send_image',  
+              url: '/get_embeddings_by_image',  
               type: 'POST',  
               data: formData,  
               contentType: false,  // 不设置contentType  
