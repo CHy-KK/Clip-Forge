@@ -145,14 +145,14 @@ def initialize_overview():
                 voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
                 img = gen_image(voxels_out[0])
                 shape_embs[i].append(img)
-
+    print("initialize finished")
     return jsonify(shape_embs)
   
 @app.route('/get_embeddings_by_image', methods=['POST'])
 def get_embeddings_by_image():
   
     global shape_embs_torch
-    # 读取image的方式需要测试
+    
     image_file = request.files.get('image')
     image_name = request.form.get('name')
     image_data = Image.open(image_file).convert('RGB')
@@ -189,19 +189,25 @@ def get_embeddings_by_image():
 
 
             print(decoder_embs.shape)
-            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy())
+            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
             shape_embs_torch.append(decoder_embs)
-            shape_embs = [image_name, new_reduced]
 
-            reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
+            # gen voxel
+            voxel_size = 64
+            shape = (voxel_size, voxel_size, voxel_size)
+            p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+            query_points = p.expand(num_figs, *p.size())
+            out = net.decoding(decoder_embs, query_points)
+            voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+            shape_embs = [image_name, new_reduced, voxels_out[0].tolist()]
     else:
         print("no image")
-    # return jsonify(shape_embs)
-    return jsonify([0])
+    return jsonify(shape_embs)
  
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
     text_in = request.json
+    print (text_in)
     global shape_embs_torch
     shape_embs = []
     clip_model.eval()
@@ -224,11 +230,9 @@ def get_embeddings_by_text_query():
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
 
 
-            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy())
+            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
             shape_embs_torch.append(decoder_embs)
             shape_embs = [text_in, new_reduced]
-
-            reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
     else:
         print("no query")
     return jsonify(shape_embs)
@@ -244,10 +248,9 @@ def update_voxel():
     new_voxel_emb = net.encoder(new_voxel_data.type(torch.FloatTensor).to(args.device))
     # print(new_voxel_emb)
     shape_embs_torch.append(new_voxel_emb)
-    new_reduced = pca.transform(new_voxel_emb.detach().cpu().numpy())
-    shape_emb = [voxel_name, new_reduced]
+    new_reduced = pca.transform(new_voxel_emb.detach().cpu().numpy()).tolist()
     
-    return jsonify(shape_emb)
+    return jsonify(new_reduced)
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])

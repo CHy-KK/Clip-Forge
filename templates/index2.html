@@ -205,7 +205,7 @@
 
             </div>
             <div class="left_bottom" id="app">
-                <svg width="500" height=500" ref="svg" style="background-image:
+                <svg width="500" height="500" ref="svg" style="background-image:
                 linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);"></svg>
             </div>
         </div>
@@ -236,7 +236,10 @@
             <div class="right_bottom">
                 <div id="canvas-container"></div>
                 <div class="button-group">
-                    <button onclick="update_voxel()" class="circle-button">Upload Voxel</button>
+                    <button onclick="upload_voxel_click()" class="circle-button">
+                      上传体素
+                      <input type="file" onchange="upload_voxel(event)" id="input_voxel" style="display: none;"/>
+                    </button>
                     <button onclick="get_voxel(0.3, 0, 0, 1, 2)" class="circle-button">Get Voxel</button>
                     <button onclick="get_voxel(0, 0, 4)" class="circle-button">Get Voxel2</button>
                 </div>
@@ -245,14 +248,6 @@
     </div>
     <div id="buttonApp2">
         <button @click="updateData()">Get Embeddings</button>
-
-        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
-        <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
-        <button onclick="upload_voxel_click()">
-            上传体素
-            <input type="file" onchange="upload_voxel(event)" id="input_voxel" style="display: none;"/>
-        </button>
-
         <button onclick="upload_image_click()">
             上传图片
             <input type="file" onchange="upload_image(event)" id="input_image" style="display: none;"/>
@@ -553,7 +548,7 @@
         let Gvoxel_data = [];
         let Gvoxel_name = "";
         let Gvoxel_list = [];
-
+        let GisInitial = false;
         const width = 400;
         const height = 400;
         const scene = new THREE.Scene();
@@ -638,7 +633,17 @@
             isDragging = false;
         })
 
-        function update_scene(voxel) {
+        function update_scene(data) {
+            Gvoxel_data = data;
+            voxels = []
+            for (let x = 0; x < 64; x++) {
+                for (let y = 0; y < 64; y++) {
+                    for (let z = 0; z < 64; z++) {
+                        if (data[z][y][x])
+                            voxels.push([x - 32, y - 32, z - 32]);
+                    }
+                }
+            }
             for (let i = 0; i < scene.children.length;) {
                 if (scene.children[i] instanceof THREE.Mesh)
                     scene.remove(scene.children[i]);
@@ -657,6 +662,13 @@
 
     <script>
         /** BACK END API **/
+        function check_init() {
+          if (!GisInitial) {
+            let r = confirm("请先进行初始化操作");
+          }
+          return GisInitial;
+        }
+
         function initialize_overview(callback) {
             $.ajax({
                 url: '/initialize_overview',
@@ -667,30 +679,32 @@
                     console.log(data);
                     callback(data)
                     Gvoxel_list = data;
+                    GisInitial = true;
                 }
             });
         }
 
         function get_embeddings_by_text_query() {
-            const mylist = ["plane", "car", "truck", "rocket"];
-
-            $.ajax({
-                url: '/get_embeddings_by_text_query',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(mylist),
-                success: function (data) {
-                    console.log("success get embedding");
-                    console.log(data);
-                    Gvoxel_list.push(data)
-                    //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
-                    //callback(coordinates);
-                }
-            });
+            // TODO:获取输入文本
+            if(check_init()) {
+                $.ajax({
+                    url: '/get_embeddings_by_text_query',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(text_in),
+                    success: function (data) {
+                        console.log("success get embedding");
+                        console.log(data);
+                        Gvoxel_list.push(data)
+                        //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
+                        //callback(coordinates);
+                    }
+                });
+            }
             event.preventDefault();
         }    
 
-        function update_voxel(voxel64) {
+        function update_voxel(name, voxel64) {
             let voxel32 = []
             for (let i = 0; i < 64; i += 2) {
                 tmp1 = []
@@ -718,12 +732,14 @@
                 success: function (data) {
                     console.log("success get embedding");
                     console.log(data);
-                    Gvoxel_list.push(data)
+                    Gvoxel_list.push([name, data]);
                 }
             });
         }
 
         function get_voxel(xval, yval, idx0 = 0, idx1 = -1, idx2 = -1, idx3 = -1) {
+          // TODO: 获取插值视图的鼠标坐标和选中点下标
+          if(check_init()) {
             $.ajax({
                 // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
                 url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}${xval == 0 ? '.0' : ''}-${yval}${yval == 0 ? '.0' : ''}`,
@@ -731,25 +747,18 @@
                 contentType: 'application/json',
                 data: JSON.stringify(''),
                 success: function (data) {
-                    Gvoxel_data = data;
-                    let voxels = [];
-                    for (let x = 0; x < 64; x++) {
-                        for (let y = 0; y < 64; y++) {
-                            for (let z = 0; z < 64; z++) {
-                                if (data[z][y][x])
-                                    voxels.push([x - 32, y - 32, z - 32]);
-                            }
-                        }
-                    }
                     Gvoxel_name = `voxel${idx0}-${idx1}-${idx2}-${idx3}as${xval}-${yval}`;
-                    update_scene(voxels)
+                    update_scene(data);
                 }
             });
+          }
         }
 
         function upload_voxel_click() {
+          if(check_init()) {
             let inputEle = document.getElementById("input_voxel");
             inputEle.click();
+          }
         }
 
         // 算了直接把上传的发给后端吧，并且加入全局的voxel列表
@@ -777,7 +786,10 @@
                             console.log(dim);
                             console.log(data);
                             if (data.length != 64 || data[0].length != 64 || data[0][0].length != 64) throw "体素模型维度错误，需要为64";
-                            update_voxel(data);
+                            // 体素发送给后端
+                            update_voxel(name, data);
+                            // 更新3d显示体素
+                            update_scene(data);
                         } catch (error) {
                             console.log('无法解析 JSON 文件:', error);
                         }
@@ -792,8 +804,10 @@
         }
 
         function upload_image_click() {
+          if(check_init()) {
             let inputEle = document.getElementById("input_image");
             inputEle.click();
+          }
         }
 
         function upload_image(event) {
@@ -812,19 +826,19 @@
               processData: false,  // 不处理数据  
               success: function(data) {  
                   console.log(data);  
-                  Gvoxel_list.push(data)
+                  Gvoxel_list.push([data[0], data[1]]);
+                  Gvoxel_name = selectedFile.name;
+                  update_scene(data[2]);
               }  
           });  
         }
 
         // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
         function save_file() {
-            Gvoxel_name = 'testFile';
-            Gvoxel_data = [[[1]]]
+          if(check_init()) {
             let voxel_json = {
                 name: Gvoxel_name,
-                // dim: 64,
-                dim: 1,
+                dim: 64,
                 data: Gvoxel_data
             };
 
@@ -839,6 +853,7 @@
             a.click();
 
             URL.revokeObjectURL(url);
+          }
         }
     </script>
     <h1>END </h1>
