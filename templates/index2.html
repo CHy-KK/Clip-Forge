@@ -115,7 +115,7 @@
             height: 40vh;
             display: flex;
             justify-content: center;
-            align-items: center;
+            /* align-items: center; */
         }
 
         .right_bottom {
@@ -187,13 +187,12 @@
             </div>
             <div class="left_center" id="buttonApp">
                 <div style="display: flex; flex-direction: row; align-items: center;">
-                    <form id="myForm" method="POST"
-                        style="display: flex; flex-direction: row; align-items: center;">
+                    <form id="myForm" method="POST" style="display: flex; flex-direction: row; align-items: center;">
                         <div style="display: flex; flex-direction: column;">
                             <input id="message" name="message">
                         </div>
                         <div style="display: flex; flex-direction: row;">
-                            <button onclick="handleSubmit(event)" type="submit">Get Embeddings</button>
+                            <button onclick="get_embeddings_by_text_query()" type="submit">Get Embeddings</button>
                             <button @click="updateData()" type="button">Initialize Overview</button>
                             <!--                        <button onclick="get_embeddings_by_text_query()">Get Embeddings</button>-->
                         </div>
@@ -370,7 +369,7 @@
                     const svg = d3.select(this.$refs.svg);
                     svg.selectAll("*").remove();
                     this.drawAxes();
-                    svg.selectAll(".label").remove();svg.selectAll(".label").remove();
+                    svg.selectAll(".label").remove(); svg.selectAll(".label").remove();
                     this.drawDots();
                 },
                 updateData() {
@@ -452,7 +451,6 @@
                     });
 
                     dots.on("mouseover", (event, d, i) => {
-                        // this.showTooltip(event, d); // 显示坐标信息
                         d3.select(event.target)
                             .interrupt("dot-" + i)
                             .attr("r", 30)
@@ -464,8 +462,6 @@
                         if (restartAnimation) {
                             this.animate(d3.select(event.target), "dot-" + i);
                         }
-                        // const tooltip = document.getElementById("tooltip");
-                        // tooltip.style.visibility = "hidden"; // 隐藏坐标信息
                     })
                         .on("click", (event, d, i) => {
                             if (!this.clicks) { // 如果没有点击过
@@ -482,6 +478,7 @@
                                 this.clickTimer = setTimeout(() => {
                                     this.clicks = 0;
                                 }, 1000);
+                                get_voxel(dataArr[0].x,dataArr[1].y)
                             } else {
                                 this.clicks++;
                                 if (this.clicks === 3) {
@@ -684,9 +681,12 @@
             });
         }
 
-        function get_embeddings_by_text_query(input_list) {
+        function get_embeddings_by_text_query() {
             const mylist = ["plane", "car", "truck", "rocket"];
-
+            const messageInput = document.getElementById("message");
+            const message = messageInput.value;
+            var input_list = String(message);
+            console.log(input_list)
             $.ajax({
                 url: '/get_embeddings_by_text_query',
                 type: 'POST',
@@ -703,13 +703,13 @@
             event.preventDefault();
         }
 
-        function handleSubmit(event) {
-            event.preventDefault();
-            const messageInput = document.getElementById("message");
-            const message = messageInput.value;
-            get_embeddings_by_text_query(String(message));
-            document.getElementById("myForm").submit();
-        }
+        // function handleSubmit(event) {
+            // event.preventDefault();
+            // const messageInput = document.getElementById("message");
+            // const message = messageInput.value;
+            // get_embeddings_by_text_query(String(message));
+            // document.getElementById("myForm").submit();
+        // }
 
         function update_voxel(voxel64) {
             let voxel32 = []
