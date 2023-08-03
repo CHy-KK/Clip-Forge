@@ -226,6 +226,7 @@
                         Selected Data_x:<span>{{ selectedData_x }}</span><br>
                         Selected Data_y:<span>{{ selectedData_y }}</span><br>
                         Selected Data_label:<span>{{ selectedData_label }}</span><br>
+                        <button @click="get_voxel_button()" type="button">Get_voxel</button>
                     </div>
                 </div>
             </div>
@@ -541,6 +542,13 @@
                     this.data = [];
                     console.log('data cleared');
                 },
+                get_voxel_button() {
+                    var idx = [0, -1, -1, -1];
+                    for (var i = 0; i < this.dataArr.length(); i++) {
+                        idx[i] = this.dataArr[i].index;
+                    }
+                    get_voxel(this.selectedData_x, this.selectedData_y, idx[0], idx[1], idx[2], idx[3]);
+                }
             }
         });
         new Vue({
