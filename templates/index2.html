@@ -4,14 +4,8 @@
 <head>
     <title>My Page</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- <link rel="stylesheet" href="./css/my_style.css"> -->
     <style>
         * {
-            margin: 0;
-            padding: 0;
-        }
-
-        div {
             margin: 0;
             padding: 0;
         }
@@ -57,7 +51,6 @@
         }
 
         .left_top {
-            /* background-color: red; */
             height: 8vh;
         }
 
@@ -65,9 +58,7 @@
         .left_center button {
             cursor: pointer;
             margin: 0;
-            /* 删除元素的外边距，使其紧密地拼接在一起 */
             box-sizing: border-box;
-            /* 使宽度和高度包含元素的内边距和边框，而不仅包含内容的宽度和高度 */
         }
 
         .left_center input {
@@ -76,14 +67,10 @@
             height: 7vh;
             border-radius: 10px;
             border: 4px solid;
-            /* 设置边框宽度 */
             border-color: steelblue;
             border-top-right-radius: 0;
-            /* 右上角边框圆角设为0 */
             border-bottom-right-radius: 0;
-            /* 右下角边框圆角设为0 */
             border-right: none;
-            /* 删除右边的边框 */
         }
 
         .left_center button {
@@ -114,9 +101,7 @@
             height: 77vh;
             display: flex;
             justify-content: center;
-            /* 水平居中 */
             align-items: center;
-            /* 垂直居中 */
         }
 
         .right {
@@ -127,8 +112,11 @@
         }
 
         .right_top {
+            position: relative;
             height: 40vh;
             display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .right_bottom {
@@ -177,6 +165,17 @@
             position: absolute;
             top: 0;
             right: 0;
+            background-color: #4CAF50;
+            position: absolute;
+            top: 0;
+            left: calc(10% + 250px + 20px);
+            height: 100%;
+            width: calc(50% - 250px - 20px);
+        }
+
+        .label {
+            font-size: 12px;
+            fill: black;
         }
     </style>
 </head>
@@ -205,7 +204,7 @@
 
             </div>
             <div class="left_bottom" id="app">
-                <svg width="500" height="500" ref="svg" style="background-image:
+                <svg width="700" height=700" ref="svg" style="background-image:
                 linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);"></svg>
             </div>
         </div>
@@ -236,10 +235,7 @@
             <div class="right_bottom">
                 <div id="canvas-container"></div>
                 <div class="button-group">
-                    <button onclick="upload_voxel_click()" class="circle-button">
-                      上传体素
-                      <input type="file" onchange="upload_voxel(event)" id="input_voxel" style="display: none;"/>
-                    </button>
+                    <button onclick="update_voxel()" class="circle-button">Upload Voxel</button>
                     <button onclick="get_voxel(0.3, 0, 0, 1, 2)" class="circle-button">Get Voxel</button>
                     <button onclick="get_voxel(0, 0, 4)" class="circle-button">Get Voxel2</button>
                 </div>
@@ -248,11 +244,19 @@
     </div>
     <div id="buttonApp2">
         <button @click="updateData()">Get Embeddings</button>
+
+        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
+        <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+        <button onclick="upload_voxel_click()">
+            上传体素
+            <input type="file" onchange="upload_voxel(event)" id="input_voxel" style="display: none;" />
+        </button>
+
         <button onclick="upload_image_click()">
             上传图片
-            <input type="file" onchange="upload_image(event)" id="input_image" style="display: none;"/>
-        </button> 
-        
+            <input type="file" onchange="upload_image(event)" id="input_image" style="display: none;" />
+        </button>
+
         <button onclick="save_file()">保存为当前体素 JSON 文件</button>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
@@ -264,33 +268,33 @@
             el: '#app',
             data() {
                 return {
-                    width: 500,
-                    height: 500,
+                    width: 700,
+                    height: 700,
                     data: [
-                        { x: -1, y: 2 },
-                        { x: 0, y: 5 },
-                        { x: 1, y: -4 },
-                        { x: -2, y: 7 },
-                        { x: 3, y: 1 }
+                        { x: -1, y: 2, label: '点A' },
+                        { x: 0, y: 5, label: '点B' },
+                        { x: 1, y: -4, label: '点C' },
+                        { x: -2, y: 7, label: '点D' },
+                        { x: 3, y: 1, label: '点E' }
                     ],
                     xScale: null,
                     yScale: null,
-                    texts: [],
+                    texts: []
                 };
             },
             created() {
                 EventBus.$on('buttonClicked', this.updateData);
             },
             mounted() {
-                this.xScale = d3.scaleLinear().range([30, 470]);
-                this.yScale = d3.scaleLinear().range([470, 30]);
+                this.xScale = d3.scaleLinear().range([30, this.width - 30]);
+                this.yScale = d3.scaleLinear().range([this.height - 30, 30]);
                 this.updateScales();
                 this.drawChart();
             },
             methods: {
                 sendData() {
                     // 发送二维数据到事件总线用于更新第二个散点图
-                    EventBus.$emit('data-updated', data);
+                    EventBus.$emit('data-updated', this.data);
                 },
                 updateScales() {
                     this.xScale.domain([d3.min(this.data, d => d.x), d3.max(this.data, d => d.x)]);
@@ -300,11 +304,11 @@
                     const svg = d3.select(this.$refs.svg);
 
                     svg.append("g")
-                        .attr("transform", "translate(0, 470)")
+                        .attr("transform", `translate(0, ${this.height - 30})`)
                         .call(d3.axisBottom(this.xScale))
                         .append("text")
                         .attr("class", "axis-label")
-                        .attr("x", 250)
+                        .attr("x", this.width / 2)
                         .attr("y", 40)
                         .text("X轴");
 
@@ -314,43 +318,60 @@
                         .append("text")
                         .attr("class", "axis-label")
                         .attr("x", -130)
-                        .attr("y", 150)
+                        .attr("y", this.height / 2)
                         .attr("transform", "rotate(-90)")
                         .text("Y轴");
                 },
                 drawDots() {
                     const svg = d3.select(this.$refs.svg);
-                    const dots = svg.selectAll("circle")
+                    const dots = svg.selectAll(".dot")
                         .data(this.data)
-                        .join("circle")
+                        .enter()
+                        .append("circle")
                         .attr("class", "dot")
+                        .style('fill', 'skyblue')
+                        .style('stroke', 'black')
+                        .style('stroke-width', '1px')
                         .attr("cx", d => this.xScale(d.x))
                         .attr("cy", d => this.yScale(d.y))
                         .attr("r", 5);
 
-                    dots.on("mouseover", (event, d) => {
+                    dots.on('mouseover', (event, d) => {
                         d3.select(event.target)
                             .transition()
-                            .attr("fill", "orange")
+                            .duration(200)
+                            .style('stroke', 'red')
+                            .style('stroke-width', '2px')
                             .attr("r", 8);
-                    });
-
-                    dots.on("mouseout", (event, d) => {
-                        d3.select(event.target)
-                            .transition()
-                            .attr("fill", "skyblue")
-                            .attr("r", 5);
-                    });
-
-                    dots.on("click", (event, d) => {
-                        console.log("Clicked point:", d);
-                        EventBus.$emit('data-updated', [d]);
-                    });
+                    })
+                        .on('mouseout', (event, d) => {
+                            d3.select(event.target)
+                                .transition()
+                                .duration(200)
+                                // 恢复原始边框样式
+                                .style('stroke', 'black')
+                                .style('stroke-width', '1px')
+                                .attr("r", 5);
+                        })
+                        .on('click', (event, d) => {
+                            console.log("Clicked point:", d);
+                            EventBus.$emit('data-updated', [d]);
+                        });
+                    const labels = svg.selectAll(".label")
+                        .data(this.data)
+                        .enter()
+                        .append("text")
+                        .attr("class", "label")
+                        .attr("x", d => this.xScale(d.x) + 10) // 标签相对于圆点的偏移量
+                        .attr("y", d => this.yScale(d.y) - 10) // 标签相对于圆点的偏移量
+                        .text(d => d.label);
                 },
+
                 drawChart() {
                     const svg = d3.select(this.$refs.svg);
                     svg.selectAll("*").remove();
                     this.drawAxes();
+                    svg.selectAll(".label").remove();svg.selectAll(".label").remove();
                     this.drawDots();
                 },
                 updateData() {
@@ -360,8 +381,6 @@
                         this.updateScales();
                         this.drawChart();
                     });
-                    this.updateScales();
-                    this.drawChart();
                 },
             },
         });
@@ -548,7 +567,7 @@
         let Gvoxel_data = [];
         let Gvoxel_name = "";
         let Gvoxel_list = [];
-        let GisInitial = false;
+
         const width = 400;
         const height = 400;
         const scene = new THREE.Scene();
@@ -633,17 +652,7 @@
             isDragging = false;
         })
 
-        function update_scene(data) {
-            Gvoxel_data = data;
-            voxels = []
-            for (let x = 0; x < 64; x++) {
-                for (let y = 0; y < 64; y++) {
-                    for (let z = 0; z < 64; z++) {
-                        if (data[z][y][x])
-                            voxels.push([x - 32, y - 32, z - 32]);
-                    }
-                }
-            }
+        function update_scene(voxel) {
             for (let i = 0; i < scene.children.length;) {
                 if (scene.children[i] instanceof THREE.Mesh)
                     scene.remove(scene.children[i]);
@@ -662,13 +671,6 @@
 
     <script>
         /** BACK END API **/
-        function check_init() {
-          if (!GisInitial) {
-            let r = confirm("请先进行初始化操作");
-          }
-          return GisInitial;
-        }
-
         function initialize_overview(callback) {
             $.ajax({
                 url: '/initialize_overview',
@@ -679,32 +681,30 @@
                     console.log(data);
                     callback(data)
                     Gvoxel_list = data;
-                    GisInitial = true;
                 }
             });
         }
 
         function get_embeddings_by_text_query() {
-            // TODO:获取输入文本
-            if(check_init()) {
-                $.ajax({
-                    url: '/get_embeddings_by_text_query',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(text_in),
-                    success: function (data) {
-                        console.log("success get embedding");
-                        console.log(data);
-                        Gvoxel_list.push(data)
-                        //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
-                        //callback(coordinates);
-                    }
-                });
-            }
-            event.preventDefault();
-        }    
+            const mylist = ["plane", "car", "truck", "rocket"];
 
-        function update_voxel(name, voxel64) {
+            $.ajax({
+                url: '/get_embeddings_by_text_query',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(mylist),
+                success: function (data) {
+                    console.log("success get embedding");
+                    console.log(data);
+                    Gvoxel_list.push(data)
+                    //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
+                    //callback(coordinates);
+                }
+            });
+            event.preventDefault();
+        }
+
+        function update_voxel(voxel64) {
             let voxel32 = []
             for (let i = 0; i < 64; i += 2) {
                 tmp1 = []
@@ -732,14 +732,12 @@
                 success: function (data) {
                     console.log("success get embedding");
                     console.log(data);
-                    Gvoxel_list.push([name, data]);
+                    Gvoxel_list.push(data)
                 }
             });
         }
 
         function get_voxel(xval, yval, idx0 = 0, idx1 = -1, idx2 = -1, idx3 = -1) {
-          // TODO: 获取插值视图的鼠标坐标和选中点下标
-          if(check_init()) {
             $.ajax({
                 // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
                 url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}${xval == 0 ? '.0' : ''}-${yval}${yval == 0 ? '.0' : ''}`,
@@ -747,18 +745,25 @@
                 contentType: 'application/json',
                 data: JSON.stringify(''),
                 success: function (data) {
+                    Gvoxel_data = data;
+                    let voxels = [];
+                    for (let x = 0; x < 64; x++) {
+                        for (let y = 0; y < 64; y++) {
+                            for (let z = 0; z < 64; z++) {
+                                if (data[z][y][x])
+                                    voxels.push([x - 32, y - 32, z - 32]);
+                            }
+                        }
+                    }
                     Gvoxel_name = `voxel${idx0}-${idx1}-${idx2}-${idx3}as${xval}-${yval}`;
-                    update_scene(data);
+                    update_scene(voxels)
                 }
             });
-          }
         }
 
         function upload_voxel_click() {
-          if(check_init()) {
             let inputEle = document.getElementById("input_voxel");
             inputEle.click();
-          }
         }
 
         // 算了直接把上传的发给后端吧，并且加入全局的voxel列表
@@ -774,22 +779,19 @@
                     let fileReader = new FileReader();
                     fileReader.onload = function (event) {
                         let fileContent = event.target.result;
-                        let name;  
-                        let dim;  
-                        let data;  
+                        let name;
+                        let dim;
+                        let data;
                         try {
                             let jsonObject = JSON.parse(fileContent);
-                            name = jsonObject.name;  
-                            dim = jsonObject.dim;  
-                            data = jsonObject.data;  
+                            name = jsonObject.name;
+                            dim = jsonObject.dim;
+                            data = jsonObject.data;
                             console.log(name);
                             console.log(dim);
                             console.log(data);
                             if (data.length != 64 || data[0].length != 64 || data[0][0].length != 64) throw "体素模型维度错误，需要为64";
-                            // 体素发送给后端
-                            update_voxel(name, data);
-                            // 更新3d显示体素
-                            update_scene(data);
+                            update_voxel(data);
                         } catch (error) {
                             console.log('无法解析 JSON 文件:', error);
                         }
@@ -804,41 +806,39 @@
         }
 
         function upload_image_click() {
-          if(check_init()) {
             let inputEle = document.getElementById("input_image");
             inputEle.click();
-          }
         }
 
         function upload_image(event) {
-          let formData = new FormData(); 
+            let formData = new FormData();
 
-          let selectedFile = event.target.files[0];
-          
-          formData.append('image', selectedFile);
-          formData.append('name', selectedFile.name);
-          
-          $.ajax({  
-              url: '/get_embeddings_by_image',  
-              type: 'POST',  
-              data: formData,  
-              contentType: false,  // 不设置contentType  
-              processData: false,  // 不处理数据  
-              success: function(data) {  
-                  console.log(data);  
-                  Gvoxel_list.push([data[0], data[1]]);
-                  Gvoxel_name = selectedFile.name;
-                  update_scene(data[2]);
-              }  
-          });  
+            let selectedFile = event.target.files[0];
+
+            formData.append('image', selectedFile);
+            formData.append('name', selectedFile.name);
+
+            $.ajax({
+                url: '/get_embeddings_by_image',
+                type: 'POST',
+                data: formData,
+                contentType: false,  // 不设置contentType  
+                processData: false,  // 不处理数据  
+                success: function (data) {
+                    console.log(data);
+                    Gvoxel_list.push(data)
+                }
+            });
         }
 
         // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
         function save_file() {
-          if(check_init()) {
+            Gvoxel_name = 'testFile';
+            Gvoxel_data = [[[1]]]
             let voxel_json = {
                 name: Gvoxel_name,
-                dim: 64,
+                // dim: 64,
+                dim: 1,
                 data: Gvoxel_data
             };
 
@@ -853,7 +853,6 @@
             a.click();
 
             URL.revokeObjectURL(url);
-          }
         }
     </script>
     <h1>END </h1>
