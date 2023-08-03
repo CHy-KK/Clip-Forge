@@ -164,12 +164,30 @@
             position: absolute;
             right: 0;
             top: 30px;
-            left: calc(20px + 250px + 20px);
+            left: calc(30px + 250px + 20px);
             height: 240px;
-            /* 添加固定高度 */
             width: 240px;
-            /* 添加固定宽度 */
-            background-color: green;
+        }
+
+        #selectedDataDiv button{
+            margin-top: 3px;
+            margin-left: 60px;
+            height: 45px;
+            width: 100px;
+            text-align: center;
+            line-height: 45px;
+            background-color: rgb(130, 11, 100);
+            border-radius: 10px;
+        }
+
+        .selectdatatable{
+            margin-top: 3px;
+            height: 45px;
+            width: 220px;
+            text-align: center;
+            line-height: 45px;
+            background-color: rgb(32, 156, 205);
+            border-radius: 10px;
         }
 
         .label {
@@ -222,10 +240,10 @@
                             y="30" />
                     </svg>
                     <div id="selectedDataDiv">
-                        Selected Data_index:<span>{{ selectedData_index }}</span><br>
-                        Selected Data_x:<span>{{ selectedData_x }}</span><br>
-                        Selected Data_y:<span>{{ selectedData_y }}</span><br>
-                        Selected Data_label:<span>{{ selectedData_label }}</span><br>
+                        <div class="selectdatatable">Selected Data_index:<span>{{ selectedData_index }}</span></div>
+                        <div class="selectdatatable">Selected Data_x:<span>{{ selectedData_x }}</span></div>
+                        <div class="selectdatatable">Selected Data_y:<span>{{ selectedData_y }}</span></div>
+                        <div class="selectdatatable">Selected Data_label:<span>{{ selectedData_label }}</span></div>
                         <button @click="get_voxel_button()" type="button">Get_voxel</button>
                     </div>
                 </div>
