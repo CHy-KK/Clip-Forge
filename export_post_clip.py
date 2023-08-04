@@ -123,12 +123,16 @@ def initialize_overview():
     shape_embs = []
     with open ('init_data.csv', 'r') as f:
         reader = csv.reader(f)
+        num_limit = 100
         for row in tqdm(reader):
             # row: [str: textquery, list: embedding]
             shape_embs.append([row[0]])
             shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
             shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
             shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
+            num_limit -= 1
+            if (num_limit == 0):
+              break
             
         print (len(shape_embs))
         print (len(shape_embs_list))
@@ -137,14 +141,14 @@ def initialize_overview():
         num_figs = 1
         for i in tqdm(range(len(shape_embs_list))):
             shape_embs[i].append(reduced_shape_embs[i])
-            if (i == 0):
-                shape = (64, 64, 64)
-                p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
-                query_points = p.expand(num_figs, *p.size())
-                out = net.decoding(shape_embs_torch[0], query_points)
-                voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
-                img = gen_image(voxels_out[0])
-                shape_embs[i].append(img)
+            # if (i == 0):
+            #     shape = (64, 64, 64)
+            #     p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+            #     query_points = p.expand(num_figs, *p.size())
+            #     out = net.decoding(shape_embs_torch[0], query_points)
+            #     voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
+            #     img = gen_image(voxels_out[0])
+            #     shape_embs[i].append(img)
     print("initialize finished")
     return jsonify(shape_embs)
   
