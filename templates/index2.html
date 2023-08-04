@@ -169,7 +169,7 @@
             width: 240px;
         }
 
-        #selectedDataDiv button{
+        #selectedDataDiv button {
             margin-top: 3px;
             margin-left: 60px;
             height: 45px;
@@ -180,7 +180,7 @@
             border-radius: 10px;
         }
 
-        .selectdatatable{
+        .selectdatatable {
             margin-top: 3px;
             height: 45px;
             width: 220px;
@@ -349,7 +349,7 @@
                         .style('stroke-width', '1px')
                         .attr("cx", d => this.xScale(d.x))
                         .attr("cy", d => this.yScale(d.y))
-                        .attr("r", 5);
+                        .attr("r", 1);
 
                     dots.on('mouseover', (event, d) => {
                         d3.select(event.target)
@@ -357,7 +357,7 @@
                             .duration(200)
                             .style('stroke', 'red')
                             .style('stroke-width', '2px')
-                            .attr("r", 8);
+                            .attr("r", 5);
                     })
                         .on('mouseout', (event, d) => {
                             d3.select(event.target)
@@ -366,7 +366,7 @@
                                 // 恢复原始边框样式
                                 .style('stroke', 'black')
                                 .style('stroke-width', '1px')
-                                .attr("r", 5);
+                                .attr("r", 2);
                         })
                         .on('click', (event, d) => {
                             console.log("Clicked point:", d);
@@ -377,9 +377,10 @@
                         .enter()
                         .append("text")
                         .attr("class", "label")
-                        .attr("x", d => this.xScale(d.x) + 10) // 标签相对于圆点的偏移量
-                        .attr("y", d => this.yScale(d.y) - 10) // 标签相对于圆点的偏移量
-                        .text(d => d.label);
+                        .attr("x", d => this.xScale(d.x) + 3) // 标签相对于圆点的偏移量
+                        .attr("y", d => this.yScale(d.y) - 3) // 标签相对于圆点的偏移量
+                        // 下面这个是显示标签的回头取消注释就好
+                        // .text(d => d.label);
                 },
 
                 drawChart() {
@@ -411,10 +412,24 @@
                     selectedData_y: null,
                     selectedData_label: null,
                     selectedData_index: null,
+                    mouseX: null,
+                    mouseY: null,
+                    xScale: null,
+                    yScale: null,
+
                 };
             },
             mounted() {
                 this.svg = d3.select(this.$refs.svg2);
+                this.svg.on('click', (event) => {
+                    const [x, y] = d3.pointer(event);
+                    const dataX = this.xScale.invert(x);
+                    const dataY = this.yScale.invert(y);
+                    this.mouseX = dataX;
+                    this.mouseY = dataY;
+
+                    console.log('Clicked at:', dataX, dataY);
+                });
                 this.draw();
             },
             created() {
@@ -454,7 +469,8 @@
                     const yScale = d3.scaleLinear()
                         .domain([0, d3.max(this.data, d => d.y)])
                         .range([270, 30]);
-
+                    this.xScale=xScale
+                    this.yScale=yScale
                     this.svg.selectAll("circle").remove();
 
                     const dots = this.svg.selectAll("circle")
@@ -538,6 +554,8 @@
                         .attr("y", 30)
                         .attr("width", 240)
                         .attr("height", 240);
+                    this.xScale=xScale
+                    this.yScale=yScale
                 },
                 animate(selection, id) {
                     selection
@@ -702,51 +720,51 @@
     <script>
         /** BACK END API **/
         function check_init() {
-          if (!GisInitial) {
-            let r = confirm("请先进行初始化操作");
-          }
-          return GisInitial;
+            if (!GisInitial) {
+                let r = confirm("请先进行初始化操作");
+            }
+            return GisInitial;
         }
-        
+
         function initialize_overview(callback) {
-          if (!GisInitial){
-            $.ajax({
-                url: '/initialize_overview',
-                type: 'POST',
-                contentType: 'application/json',
-                success: function (data) {
-                    console.log("success get embedding");
-                    console.log(data);
-                    callback(data)
-                    Gvoxel_list = data;
-                    GisInitial = true;
-                }
-            });
-          }
-          else {
-            let r = confirm("请勿重复初始化");
-          }
+            if (!GisInitial) {
+                $.ajax({
+                    url: '/initialize_overview',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    success: function (data) {
+                        console.log("success get embedding");
+                        console.log(data);
+                        callback(data)
+                        Gvoxel_list = data;
+                        GisInitial = true;
+                    }
+                });
+            }
+            else {
+                let r = confirm("请勿重复初始化");
+            }
         }
 
         function get_embeddings_by_text_query() {
-            if(check_init()) {
-              const messageInput = document.getElementById("message");
-              const message = messageInput.value;
-              var input_list = String(message);
-              console.log(input_list)
-              $.ajax({
-                  url: '/get_embeddings_by_text_query',
-                  type: 'POST',
-                  contentType: 'application/json',
-                  data: JSON.stringify(input_list[0]),
-                  success: function (data) {
-                      console.log("success get embedding");
-                      console.log(data);
-                      Gvoxel_list.push(data)
-                      //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
-                      //callback(coordinates);
-                  }
-              });
+            if (check_init()) {
+                const messageInput = document.getElementById("message");
+                const message = messageInput.value;
+                var input_list = String(message);
+                console.log(input_list)
+                $.ajax({
+                    url: '/get_embeddings_by_text_query',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(input_list[0]),
+                    success: function (data) {
+                        console.log("success get embedding");
+                        console.log(data);
+                        Gvoxel_list.push(data)
+                        //const coordinates = data;//.map(item => ({ x: item.x, y: item.y }));
+                        //callback(coordinates);
+                    }
+                });
             }
             event.preventDefault();
         }
@@ -793,7 +811,7 @@
         }
 
         function get_voxel(xval, yval, idx0 = 0, idx1 = -1, idx2 = -1, idx3 = -1) {
-            if(check_init()) {
+            if (check_init()) {
                 $.ajax({
                     // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
                     url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}${xval == 0 ? '.0' : ''}-${yval}${yval == 0 ? '.0' : ''}`,
@@ -809,10 +827,10 @@
         }
 
         function upload_voxel_click() {
-          if(check_init()) {
-            let inputEle = document.getElementById("input_voxel");
-            inputEle.click();
-          }
+            if (check_init()) {
+                let inputEle = document.getElementById("input_voxel");
+                inputEle.click();
+            }
         }
 
         // 算了直接把上传的发给后端吧，并且加入全局的voxel列表
@@ -858,10 +876,10 @@
         }
 
         function upload_image_click() {
-          if(check_init()) {
-            let inputEle = document.getElementById("input_image");
-            inputEle.click();
-          }
+            if (check_init()) {
+                let inputEle = document.getElementById("input_image");
+                inputEle.click();
+            }
         }
 
         function upload_image(event) {
@@ -889,25 +907,25 @@
 
         // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
         function save_file() {
-          if(check_init()) {
-            let voxel_json = {
-                name: Gvoxel_name,
-                dim: 64,
-                data: Gvoxel_data
-            };
+            if (check_init()) {
+                let voxel_json = {
+                    name: Gvoxel_name,
+                    dim: 64,
+                    data: Gvoxel_data
+                };
 
-            let jsonData = JSON.stringify(voxel_json, null, 2);
+                let jsonData = JSON.stringify(voxel_json, null, 2);
 
-            let blob = new Blob([jsonData], { type: 'application/json' });
-            let url = URL.createObjectURL(blob);
+                let blob = new Blob([jsonData], { type: 'application/json' });
+                let url = URL.createObjectURL(blob);
 
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = `${Gvoxel_name}.json`;
-            a.click();
+                let a = document.createElement('a');
+                a.href = url;
+                a.download = `${Gvoxel_name}.json`;
+                a.click();
 
-            URL.revokeObjectURL(url);
-          }
+                URL.revokeObjectURL(url);
+            }
         }
     </script>
     <h1>END </h1>
