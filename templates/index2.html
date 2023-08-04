@@ -408,8 +408,8 @@
                     svg: null,
                     data: [],
                     timer: null,
-                    selectedData_x: null,
-                    selectedData_y: null,
+                    selectedData_x: 0,
+                    selectedData_y: 0,
                     selectedData_label: null,
                     selectedData_index: null,
                     mouseX: null,
@@ -425,10 +425,16 @@
                     const [x, y] = d3.pointer(event);
                     const dataX = this.xScale.invert(x);
                     const dataY = this.yScale.invert(y);
-                    this.mouseX = dataX;
-                    this.mouseY = dataY;
-
-                    console.log('Clicked at:', dataX, dataY);
+                    this.mouseX = dataX.toFixed(2);
+                    this.mouseY = dataY.toFixed(2);
+                    if (this.mouseX >= 0 && this.mouseX <= 1 && this.mouseY >=0 && this.mouseY <= 1) {
+                        this.selectedData_x = this.mouseX < 0 ? 0 : this.mouseX;
+                        this.selectedData_x = this.selectedData_x > 1 ? 1 : this.selectedData_x;
+                        this.selectedData_y = this.mouseY < 0 ? 0 : this.mouseY;
+                        this.selectedData_y = this.selectedData_y > 1 ? 1 : this.selectedData_y;
+                        console.log('Clicked at:', this.selectedData_x, this.selectedData_y);
+                    }
+                    // console.log('Clicked at:', dataX, dataY);
                 });
                 this.draw();
             },
@@ -582,9 +588,7 @@
                     for (var i = 0; i < this.dataArr.length; i++) {
                         idx[i] = this.dataArr[i].index;
                     }
-                    console.log("x y = ");
-                    console.log(this.selectedData_x, this.selectedData_y);
-                    get_voxel(this.selectedData_x, this.selectedData_y, idx[0], idx[1], idx[2], idx[3]);
+                    get_voxel(Number(this.selectedData_x).toFixed(2), Number(this.selectedData_y).toFixed(2), idx[0], idx[1], idx[2], idx[3]);
                 }
             }
         });
@@ -812,9 +816,14 @@
 
         function get_voxel(xval, yval, idx0 = 0, idx1 = -1, idx2 = -1, idx3 = -1) {
             if (check_init()) {
+                console.log(idx2, idx3, xval, yval);
+                if (idx2 != -1 && idx3 == -1 && Number(xval) + Number(yval) > 1) {
+                    let r = confirm("选择点在三角形范围外，需要x+y<=1");
+                    return;
+                }
                 $.ajax({
                     // 如果值是0那么必须手动打印.0，否则url会自动去掉小数点，然后flask识别时会识别为int，与float类型冲突导致报错
-                    url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}${xval == 0 ? '.0' : ''}-${yval}${yval == 0 ? '.0' : ''}`,
+                    url: `/get_voxel/${idx0}-${idx1}-${idx2}-${idx3}/${xval}-${yval}`,
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify(''),
