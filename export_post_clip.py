@@ -121,7 +121,7 @@ def initialize_overview():
     global shape_embs_torch
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
     shape_embs = []
-    with open ('init_data.csv', 'r') as f:
+    with open ('init_data_simple.csv', 'r') as f:
         reader = csv.reader(f)
         num_limit = 100
         for row in tqdm(reader):
@@ -130,9 +130,9 @@ def initialize_overview():
             shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
             shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
             shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
-            num_limit -= 1
-            if (num_limit == 0):
-              break
+            # num_limit -= 1
+            # if (num_limit == 0):
+            #   break
             
         print (len(shape_embs))
         print (len(shape_embs_list))

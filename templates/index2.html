@@ -201,7 +201,7 @@
     <div class="clearfix">
         <div class="left">
             <div class="left_top">
-                <h1>My_Page</h1>
+                <!-- <h1>My_Page</h1> -->
             </div>
             <div class="left_center" id="buttonApp">
                 <div style="display: flex; flex-direction: row; align-items: center;">
@@ -255,24 +255,21 @@
                         上传体素
                         <input type="file" onchange="upload_voxel(event)" id="input_voxel" style="display: none;" />
                     </button>
-                    <button onclick="get_voxel(0.3, 0, 0, 1, 2)" class="circle-button">Get Voxel</button>
-                    <button onclick="get_voxel(0, 0, 4)" class="circle-button">Get Voxel2</button>
+                    <button onclick="upload_image_click()" class="circle-button">
+                      上传图片
+                      <input type="file" onchange="upload_image(event)" id="input_image" style="display: none;" />
+                  </button>
+                  <button onclick="save_file()" class="circle-button">保存体素</button>
+                    <!-- <button onclick="get_voxel(0.3, 0, 0, 1, 2)" class="circle-button">Get Voxel</button>
+                    <button onclick="get_voxel(0, 0, 4)" class="circle-button">Get Voxel2</button> -->
                 </div>
             </div>
         </div>
     </div>
     <div id="buttonApp2">
-        <button @click="updateData()">Get Embeddings</button>
 
-        <button onclick="get_voxel(0.3, 0, 0, 1, 2)">Get Voxel</button>
-        <button onclick="get_voxel(0, 0, 4)">Get Voxel2</button>
+        
 
-        <button onclick="upload_image_click()">
-            上传图片
-            <input type="file" onchange="upload_image(event)" id="input_image" style="display: none;" />
-        </button>
-
-        <button onclick="save_file()">保存为当前体素 JSON 文件</button>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/three@0.131.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
@@ -937,7 +934,7 @@
             }
         }
     </script>
-    <h1>END </h1>
+    
 </body>
 
 </html>

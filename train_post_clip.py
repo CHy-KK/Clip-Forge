@@ -118,6 +118,42 @@ def get_dataloader(args, split="train", dataset_flag=False):
 
 ######################################## Pre-compute stuff ########################################
 
+def voxel_save(voxels, text_name, out_file=None, transpose=True, show=False):
+
+    # Use numpy
+    voxels = np.asarray(voxels)
+    # Create plot
+    #fig = plt.figure()
+    fig = plt.figure(figsize=(40,20))
+    
+    ax = fig.add_subplot(111, projection=Axes3D.name)
+    if transpose == True:
+        voxels = voxels.transpose(2, 0, 1)
+    #else:
+        #voxels = voxels.transpose(2, 0, 1)
+    
+
+    ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
+    ax.set_xlabel('Z')
+    ax.set_ylabel('X')
+    ax.set_zlabel('Y')
+    # Hide grid lines
+    plt.grid(False)
+    plt.axis('off')
+    
+    if text_name != None:
+        plt.title(text_name, {'fontsize':30}, y=0.15)
+    #plt.text(15, -0.01, "Correlation Graph between Citation & Favorite Count")
+
+    ax.view_init(elev=30, azim=45)
+
+    if out_file is not None:
+        plt.axis('off')
+        plt.savefig(out_file)
+    if show:
+        plt.show()
+    plt.close(fig)
+
 #### Get the clip embedding and shape embedding. Done to be more efficent 
 def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
     model.eval()
@@ -141,6 +177,17 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
             
                 shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
+                
+                shape = (64, 64, 64)
+                p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+                query_points = p.expand(1, *p.size())
+                out = model.decoding(model.encoder(data_input), query_points)
+                voxels_out = (out.view(1, 64, 64, 64) > args.threshold).detach().cpu().numpy()
+                voxel_num = 0
+                for voxel_in in voxels_out:
+                    out_file = os.path.join("test_gen/", "plane" + "_" + str(voxel_num) + ".png")
+                    voxel_save(voxel_in, None, out_file=out_file)
+                    voxel_num = voxel_num + 1
                 # print (shape_emb)
                 batch_idx = 0
                 for emb in shape_emb:

@@ -290,6 +290,7 @@ def save_voxel_images(net, latent_flow_model, clip_model, args, total_text_query
             noise = torch.cat([mean_shape, noise], dim=0)
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
 
+            print(query_points.shape)
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
             
@@ -412,6 +413,59 @@ def get_local_parser_test(mode="args"):
         return args
     else:
         return parser
+
+def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
+    model.eval()
+    clip_model.eval()
+    shape_embeddings = []
+    cond_embeddings = []
+    with torch.no_grad():
+        for i in range(0, times):
+            print('dataloader size = ' + str(len(dataloader)))
+            for data in tqdm(dataloader):
+                pc = data['pc_org'].type(torch.FloatTensor).to(args.device)
+                query_points, occ = data['points'], data['points.occ']
+                data_index =  data['idx'].to(args.device)
+                image = data['images'].type(torch.FloatTensor).to(args.device)
+               
+                query_points = query_points.type(torch.FloatTensor).to(args.device)
+                occ = occ.type(torch.FloatTensor).to(args.device)
+                if args.input_type == "Voxel":
+                    data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
+                elif args.input_type == "Pointcloud":
+                    data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
+            
+                shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
+                out = model.decoding(shape_emb, query_points)
+                voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+                voxel_num = 0
+                for voxel_in in voxels_out:
+                    out_file = os.path.join("test_gen/", plane + "_" + str(voxel_num) + ".png")
+                    voxel_save(voxel_in, None, out_file=out_file)
+                    voxel_num = voxel_num + 1
+                # print (shape_emb)
+                batch_idx = 0
+                for emb in shape_emb:
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append(emb)
+                    batch_idx += 1
+                # print("----------------------------------")
+                # for key, value in shape_embedding_record.items():
+                #   print (len(value))
+                # print("----------------------------------")
+                print(image)
+                print(image.shape)
+
+                image_features = clip_model.encode_image(image)
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                print(image_features.shape)
+                # shape_embeddings.append(shape_emb.detach().cpu().numpy())
+                # cond_embeddings.append(image_features.detach().cpu().numpy())
+                #break
+        #     logging.info("Number of views done: {}/{}".format(i, times))
+            
+        # shape_embeddings = np.concatenate(shape_embeddings) 
+        # cond_embeddings = np.concatenate(cond_embeddings) 
+        return shape_embeddings, cond_embeddings
     
 def main():
     args = get_local_parser_test() 
@@ -467,6 +521,8 @@ def main():
     logging.info("#############################")
 
     logging.info("Conducting the experiment {}".format(args.experiment_mode))
+
+
 
     if args.experiment_mode == "fid_cal":
         torch.multiprocessing.set_sharing_strategy('file_system')
