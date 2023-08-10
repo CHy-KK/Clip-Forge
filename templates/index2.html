@@ -506,6 +506,30 @@
               }));
               Gvoxel_list.push([name, data]);
               self.data.push(...formattedData);
+              this.updateScales();
+              this.drawChart();
+            },
+            upload_image(event) {
+              let formData = new FormData();
+
+              let selectedFile = event.target.files[0];
+
+              formData.append("image", selectedFile);
+              formData.append("name", selectedFile.name);
+
+              $.ajax({
+                url: "/get_embeddings_by_image",
+                type: "POST",
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                  console.log(data);
+                  Gvoxel_list.push([data[0], data[1]]);
+                  Gvoxel_name = selectedFile.name;
+                  update_scene(data[2]);
+                },
+              });
             },
           });
         },
@@ -925,46 +949,46 @@
       // document.getElementById("myForm").submit();
       // }
 
-    //   function update_voxel(name, voxel64, callback) {
-        // let voxel32 = [];
-        // for (let i = 0; i < 64; i += 2) {
-        //   tmp1 = [];
-        //   for (let j = 0; j < 64; j += 2) {
-            // tmp2 = [];
-            // for (let k = 0; k < 64; k += 2) {
-            //   if (
-                // Number(voxel64[i][j][k]) +
-                //   Number(voxel64[i + 1][j][k]) +
-                //   Number(voxel64[i][j + 1][k]) +
-                //   Number(voxel64[i + 1][j + 1][k]) +
-                //   Number(voxel64[i][j][k + 1]) +
-                //   Number(voxel64[i + 1][j][k + 1]) +
-                //   Number(voxel64[i][j + 1][k + 1]) +
-                //   Number(voxel64[i + 1][j + 1][k + 1]) >=
-                // 3
-            //   )
-                // tmp2.push(true);
-            //   else tmp2.push(false);
-            // }
-            // tmp1.push(tmp2);
-        //   }
-        //   voxel32.push(tmp1);
-        // }
+      //   function update_voxel(name, voxel64, callback) {
+      // let voxel32 = [];
+      // for (let i = 0; i < 64; i += 2) {
+      //   tmp1 = [];
+      //   for (let j = 0; j < 64; j += 2) {
+      // tmp2 = [];
+      // for (let k = 0; k < 64; k += 2) {
+      //   if (
+      // Number(voxel64[i][j][k]) +
+      //   Number(voxel64[i + 1][j][k]) +
+      //   Number(voxel64[i][j + 1][k]) +
+      //   Number(voxel64[i + 1][j + 1][k]) +
+      //   Number(voxel64[i][j][k + 1]) +
+      //   Number(voxel64[i + 1][j][k + 1]) +
+      //   Number(voxel64[i][j + 1][k + 1]) +
+      //   Number(voxel64[i + 1][j + 1][k + 1]) >=
+      // 3
+      //   )
+      // tmp2.push(true);
+      //   else tmp2.push(false);
+      // }
+      // tmp1.push(tmp2);
+      //   }
+      //   voxel32.push(tmp1);
+      // }
 
-        // console.log(voxel32);
-        // $.ajax({
-        //   url: "/update_voxel",
-        //   type: "POST",
-        //   contentType: "application/json",
-        //   data: JSON.stringify(voxel32),
-        //   success: function (data) {
-            // console.log("success get embedding");
-            // console.log(data);
-            // callback(data);
-            // Gvoxel_list.push([name, data]);
-        //   },
-        // });
-    //   }
+      // console.log(voxel32);
+      // $.ajax({
+      //   url: "/update_voxel",
+      //   type: "POST",
+      //   contentType: "application/json",
+      //   data: JSON.stringify(voxel32),
+      //   success: function (data) {
+      // console.log("success get embedding");
+      // console.log(data);
+      // callback(data);
+      // Gvoxel_list.push([name, data]);
+      //   },
+      // });
+      //   }
 
       function get_voxel(
         xval,
@@ -1053,28 +1077,28 @@
         }
       }
 
-      function upload_image(event) {
-        let formData = new FormData();
+    //   function upload_image(event) {
+        // let formData = new FormData();
 
-        let selectedFile = event.target.files[0];
+        // let selectedFile = event.target.files[0];
 
-        formData.append("image", selectedFile);
-        formData.append("name", selectedFile.name);
+        // formData.append("image", selectedFile);
+        // formData.append("name", selectedFile.name);
 
-        $.ajax({
-          url: "/get_embeddings_by_image",
-          type: "POST",
-          data: formData,
-          contentType: false, // 不设置contentType
-          processData: false, // 不处理数据
-          success: function (data) {
-            console.log(data);
-            Gvoxel_list.push([data[0], data[1]]);
-            Gvoxel_name = selectedFile.name;
-            update_scene(data[2]);
-          },
-        });
-      }
+        // $.ajax({
+        //   url: "/get_embeddings_by_image",
+        //   type: "POST",
+        //   data: formData,
+        //   contentType: false, // 不设置contentType
+        //   processData: false, // 不处理数据
+        //   success: function (data) {
+            // console.log(data);
+            // Gvoxel_list.push([data[0], data[1]]);
+            // Gvoxel_name = selectedFile.name;
+            // update_scene(data[2]);
+        //   },
+        // });
+    //   }
 
       // TODO:传入一个voxel，保存为{name:"", dim:int, data:[[[]]]}
       function save_file() {
