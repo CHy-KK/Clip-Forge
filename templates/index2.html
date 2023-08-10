@@ -490,7 +490,6 @@
           console.log(voxel32);
 
           const self = this; // Store a reference to the Vue instance
-
           $.ajax({
             url: "/update_voxel",
             type: "POST",
@@ -499,12 +498,14 @@
             success: function (data) {
               console.log("success get embedding");
               console.log(data);
-              self.data = data.map((item, index_id) => ({
+              const formattedData = data.map((item, index_id) => ({
                 index: index_id,
                 x: item[1][0],
                 y: item[1][1],
                 label: item[0],
               }));
+              Gvoxel_list.push([name, data]);
+              self.data.push(...formattedData);
             },
           });
         },
@@ -743,10 +744,10 @@
     <script>
       /** 3D VOXEL RENDERER **/
       // Base Settings
-      let Gvoxel_data = [];
-      let Gvoxel_name = "";
-      let Gvoxel_list = [];
-      let GisInitial = false;
+      var Gvoxel_data = [];
+      var Gvoxel_name = "";
+      var Gvoxel_list = [];
+      var GisInitial = false;
 
       const width = 400;
       const height = 400;
