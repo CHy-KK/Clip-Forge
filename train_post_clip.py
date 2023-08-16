@@ -87,6 +87,10 @@ def get_dataloader(args, split="train", dataset_flag=False):
         fields['points'] = points_field
         fields['voxels'] = voxel_fields
         fields['images'] = image_field
+        print("in data loader")
+        print("in data loader")
+        print("in data loader")
+        print("in data loader")
         
         def my_collate(batch):
             batch =  list(filter(lambda x : x is not None, batch))

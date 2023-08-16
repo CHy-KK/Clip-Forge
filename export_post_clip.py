@@ -10,6 +10,9 @@ import base64
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.decomposition import PCA 
+from sklearn.manifold import TSNE  
+from sklearn.cluster import KMeans  
+
 import numpy as np
 
 from PIL import Image
@@ -119,9 +122,11 @@ def index():
 @app.route('/initialize_overview', methods=['GET', 'POST'])
 def initialize_overview():
     global shape_embs_torch
-    shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+    global shape_embs_list
+    global tsne
+    global kmeans
     shape_embs = []
-    with open ('init_data_simple.csv', 'r') as f:
+    with open ('init_data.csv', 'r') as f:
         reader = csv.reader(f)
         num_limit = 100
         for row in tqdm(reader):
@@ -130,17 +135,23 @@ def initialize_overview():
             shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
             shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
             shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
-            # num_limit -= 1
-            # if (num_limit == 0):
-            #   break
+     
             
         print (len(shape_embs))
         print (len(shape_embs_list))
         print (len(shape_embs_torch))
-        reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
+        reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+        print("tsne finish")
+        kmeans.fit(shape_embs_list)
+        print("kmeans finish")
         num_figs = 1
+        clslist = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
         for i in tqdm(range(len(shape_embs_list))):
-            shape_embs[i].append(reduced_shape_embs[i])
+            shape_embs[i].append([reduced_shape_embs[i], str(kmeans.predict(shape_embs_list[i].reshape(1, -1))[0])])
+            # print(kmeans.predict(shape_embs_list[i].reshape(1, -1)) )
+            if (clslist[kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]] >= 0):
+                print(kmeans.predict(shape_embs_list[i].reshape(1, -1))[0])
+                clslist[kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]] = -1
             # if (i == 0):
             #     shape = (64, 64, 64)
             #     p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
@@ -149,6 +160,7 @@ def initialize_overview():
             #     voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
             #     img = gen_image(voxels_out[0])
             #     shape_embs[i].append(img)
+        
     print("initialize finished")
     return jsonify(shape_embs)
   
@@ -156,6 +168,9 @@ def initialize_overview():
 def get_embeddings_by_image():
   
     global shape_embs_torch
+    global shape_embs_list
+    global tsne
+    global kmeans
     
     image_file = request.files.get('image')
     image_name = request.form.get('name')
@@ -193,8 +208,15 @@ def get_embeddings_by_image():
 
 
             print(decoder_embs.shape)
-            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
+
             shape_embs_torch.append(decoder_embs)
+            shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
+            reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+            kmeans.fit(shape_embs_list)
+            shape_embs.append([image_name, None, None])
+            for i in tqdm(range(len(shape_embs_list))):
+                shape_embs[i][1] = reduced_shape_embs[i]
+                shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
 
             # gen voxel
             voxel_size = 64
@@ -203,10 +225,10 @@ def get_embeddings_by_image():
             query_points = p.expand(num_figs, *p.size())
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-            shape_embs = [image_name, new_reduced, voxels_out[0].tolist()]
+            # shape_embs = [image_name, new_reduced, voxels_out[0].tolist()]
     else:
         print("no image")
-    return jsonify(shape_embs)
+    return jsonify([shape_embs, voxels_out[0].tolist()])
  
 @app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
 def get_embeddings_by_text_query():
@@ -244,13 +266,9 @@ def get_embeddings_by_text_query():
 @app.route('/update_voxel', methods=['GET', 'POST'])
 def update_voxel():
     new_voxel_data = [request.json]
-    # print(voxel_data)
     new_voxel_data = np.array(new_voxel_data)
-    # print(new_voxel_data)
     new_voxel_data = torch.Tensor(new_voxel_data)
-    # print(new_voxel_data.shape)
     new_voxel_emb = net.encoder(new_voxel_data.type(torch.FloatTensor).to(args.device))
-    # print(new_voxel_emb)
     shape_embs_torch.append(new_voxel_emb)
     new_reduced = pca.transform(new_voxel_emb.detach().cpu().numpy()).tolist()
     
@@ -297,8 +315,13 @@ if __name__ == '__main__':
     global latent_flow_model
     global clip_model
     global shape_embs_torch
-    global pca
-    pca = PCA(n_components=2)
+    global shape_embs_list
+    global tsne
+    global kmeans
+
+    shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+    tsne = TSNE(n_components=2, random_state=42)
+    kmeans = KMeans(n_clusters=13, random_state=42)
     shape_embs_torch = []
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
