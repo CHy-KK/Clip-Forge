@@ -299,11 +299,11 @@
           width: 700,
           height: 700,
           data: [
-            { index: 0, x: -1, y: 2, label: "点A" },
-            { index: 1, x: 0, y: 5, label: "点B" },
-            { index: 2, x: 1, y: -4, label: "点C" },
-            { index: 3, x: -2, y: 7, label: "点D" },
-            { index: 4, x: 3, y: 1, label: "点E" },
+            { index: 0, x: -1, y: 2, label: "点A", color: 0 },
+            { index: 1, x: 0, y: 5, label: "点B", color: 1 },
+            { index: 2, x: 1, y: -4, label: "点C", color: 2 },
+            { index: 3, x: -2, y: 7, label: "点D", color: 3 },
+            { index: 4, x: 3, y: 1, label: "点E", color: 4 },
           ],
           xScale: null,
           yScale: null,
@@ -359,6 +359,9 @@
             .text("Y轴");
         },
         drawDots() {
+          var colorScale = d3.scaleOrdinal()
+            .domain([0, 1, 2, 3, 4])
+            .range(["red", "blue", "green", "skyblue", "yellow"]);
           const svg = d3.select(this.$refs.svg);
           const dots = svg
             .selectAll(".dot")
@@ -366,12 +369,14 @@
             .enter()
             .append("circle")
             .attr("class", "dot")
-            .style("fill", "skyblue")
+            .style("fill", function (d) {
+              return colorScale(d.color);
+            })
             .style("stroke", "black")
             .style("stroke-width", "1px")
             .attr("cx", (d) => this.xScale(d.x))
             .attr("cy", (d) => this.yScale(d.y))
-            .attr("r", 1);
+            .attr("r", 5);
 
           dots
             .on("mouseover", (event, d) => {
@@ -390,7 +395,7 @@
                 // 恢复原始边框样式
                 // .style('stroke', 'black')
                 .style("stroke-width", "1px")
-                .attr("r", 2);
+                .attr("r", 5);
             })
             .on("click", (event, d) => {
               console.log("Clicked point:", d);
@@ -423,6 +428,7 @@
               x: item[1][0],
               y: item[1][1],
               label: item[0],
+              color: item[2]
             }));
             this.texts = data.map((item) => item[0]);
             this.updateScales();
@@ -494,6 +500,7 @@
                 x: item[1][0],
                 y: item[1][1],
                 label: item[0],
+                color:item[2]
               }));
               Gvoxel_list.push([name, data]);
               self.data.push(...formattedData);
