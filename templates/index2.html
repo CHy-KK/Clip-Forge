@@ -454,6 +454,16 @@
               Gvoxel_list.push([data[0], data[1]]);
               Gvoxel_name = selectedFile.name;
               update_scene(data[2]);
+              const formattedData = data.map((item, index_id) => ({
+                index: index_id,
+                x: item[1][0],
+                y: item[1][1],
+                label: item[0],
+                color: item[2]
+              }));
+              self.data.push(...formattedData);
+              this.updateScales();
+              this.drawChart();
             },
           });
         },
@@ -500,7 +510,7 @@
                 x: item[1][0],
                 y: item[1][1],
                 label: item[0],
-                color:item[2]
+                color: item[2]
               }));
               Gvoxel_list.push([name, data]);
               self.data.push(...formattedData);
