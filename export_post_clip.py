@@ -3,16 +3,23 @@ import os.path as osp
 import sys
 import logging
 import csv
+import io
+import base64
+
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.decomposition import PCA 
+from sklearn.manifold import TSNE  
+from sklearn.cluster import KMeans  
+
 import numpy as np
 
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas  
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -32,6 +39,9 @@ import clip
 from flask import Flask, jsonify, request, render_template
 
 from werkzeug.routing import BaseConverter
+
+from PIL import Image
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, RandomResizedCrop, ColorJitter
 
 app = Flask(__name__)
 
@@ -81,64 +91,174 @@ args.device = device
 # latent_flow_model = None
 # clip_model = None
 
+def gen_image(voxels):
+    voxels = np.asarray(voxels)
+    fig = plt.figure(figsize=(40,20))
+    
+    ax = fig.add_subplot(111, projection=Axes3D.name)
+    voxels = voxels.transpose(2, 0, 1)
+
+    ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
+    ax.set_xlabel('Z')
+    ax.set_ylabel('X')
+    ax.set_zlabel('Y')
+    # Hide grid lines
+    plt.grid(False)
+    plt.axis('off')
+
+    canvas = FigureCanvas(fig)  
+    stream = io.BytesIO()
+    canvas.print_png(stream)
+    image_data = stream.getvalue()
+    encoded_image = base64.b64encode(image_data).decode('utf-8')  
+    plt.close(fig) 
+    stream.close()
+    return encoded_image
+
 @app.route('/')
 def index():
   return render_template('index2.html')
 
 @app.route('/initialize_overview', methods=['GET', 'POST'])
 def initialize_overview():
-    shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+    global shape_embs_torch
+    global shape_embs_list
+    global tsne
+    global kmeans
     shape_embs = []
     with open ('init_data.csv', 'r') as f:
         reader = csv.reader(f)
-        for row in reader:
+        num_limit = 100
+        for row in tqdm(reader):
             # row: [str: textquery, list: embedding]
             shape_embs.append([row[0]])
-            shape_embs_list = np.append(shape_embs_list, np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float), axis=0)
-            shape_embs_torch.append(row[1].type(torch.FloatTensor).to(args.device))
+            shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
+            shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
+            shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
+     
+            
         print (len(shape_embs))
         print (len(shape_embs_list))
         print (len(shape_embs_torch))
-        reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
-        for i in range(len(shape_embs_list)):
-            shape_embs[i].append(reduced_shape_embs[i])
-
+        reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+        print("tsne finish")
+        kmeans.fit(shape_embs_list)
+        print("kmeans finish")
+        num_figs = 1
+        clslist = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+        for i in tqdm(range(len(shape_embs_list))):
+            shape_embs[i].append([reduced_shape_embs[i], str(kmeans.predict(shape_embs_list[i].reshape(1, -1))[0])])
+            # print(kmeans.predict(shape_embs_list[i].reshape(1, -1)) )
+            if (clslist[kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]] >= 0):
+                print(kmeans.predict(shape_embs_list[i].reshape(1, -1))[0])
+                clslist[kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]] = -1
+            # if (i == 0):
+            #     shape = (64, 64, 64)
+            #     p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+            #     query_points = p.expand(num_figs, *p.size())
+            #     out = net.decoding(shape_embs_torch[0], query_points)
+            #     voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
+            #     img = gen_image(voxels_out[0])
+            #     shape_embs[i].append(img)
+        
+    print("initialize finished")
     return jsonify(shape_embs)
- 
-# 待修改
-@app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
-def get_embeddings_by_text_query():
-    total_text_query = request.json
+  
+@app.route('/get_embeddings_by_image', methods=['POST'])
+def get_embeddings_by_image():
+  
     global shape_embs_torch
-    shape_embs_torch = []
-    shape_embs = dict()
+    global shape_embs_list
+    global tsne
+    global kmeans
+    
+    image_file = request.files.get('image')
+    image_name = request.form.get('name')
+    image_data = Image.open(image_file).convert('RGB')
+    n_px = 224
+
+    transform_image = Compose([
+        Resize(n_px, interpolation=Image.BICUBIC),
+        CenterCrop(n_px),
+        lambda image: image.convert("RGB"),
+        ToTensor(),
+        Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+    ])
+    
+    image_tensor = transform_image(image_data).unsqueeze(0) 
+    print(image_tensor.shape)
+    shape_embs = []
     clip_model.eval()
     latent_flow_model.eval()
-    if (total_text_query != None):
-        print(total_text_query)
+    if (image_tensor != None):
         with torch.no_grad():
             num_figs = 1
             shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
-            for text_in in tqdm(total_text_query):
-                ##########
-                text = clip.tokenize([text_in]).to(args.device)
-                text_features = clip_model.encode_text(text)
-                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                ###########
-                torch.manual_seed(5)
-                mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
-                noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
-                noise = torch.clip(noise, min=-1, max=1)
-                noise = torch.cat([mean_shape, noise], dim=0)
-                decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
-                # shape_embs.append(decoder_embs.detach().cpu().numpy().tolist()[0])
-                shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
-                shape_embs_torch.append(decoder_embs)
-            reduced_shape_embs = pca.fit_transform(shape_embs_list).tolist()
-            cnt = 0
-            for text_in in total_text_query:
-                shape_embs[text_in] = reduced_shape_embs[cnt]
-                cnt += 1
+            ##########
+            image = image_tensor.type(torch.FloatTensor).to(args.device)
+            image_features = clip_model.encode_image(image)
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            ###########
+            torch.manual_seed(5)
+            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+            noise = torch.clip(noise, min=-1, max=1)
+            noise = torch.cat([mean_shape, noise], dim=0)
+            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=image_features.repeat(num_figs,1))
+
+
+            print(decoder_embs.shape)
+
+            shape_embs_torch.append(decoder_embs)
+            shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
+            reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+            kmeans.fit(shape_embs_list)
+            shape_embs.append([image_name, None, None])
+            for i in tqdm(range(len(shape_embs_list))):
+                shape_embs[i][1] = reduced_shape_embs[i]
+                shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
+
+            # gen voxel
+            voxel_size = 64
+            shape = (voxel_size, voxel_size, voxel_size)
+            p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+            query_points = p.expand(num_figs, *p.size())
+            out = net.decoding(decoder_embs, query_points)
+            voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+            # shape_embs = [image_name, new_reduced, voxels_out[0].tolist()]
+    else:
+        print("no image")
+    return jsonify([shape_embs, voxels_out[0].tolist()])
+ 
+@app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
+def get_embeddings_by_text_query():
+    text_in = request.json
+    print (text_in)
+    global shape_embs_torch
+    shape_embs = []
+    clip_model.eval()
+    latent_flow_model.eval()
+    if (text_in != None):
+        print(text_in)
+        with torch.no_grad():
+            num_figs = 1
+            shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+            ##########
+            text = clip.tokenize([text_in]).to(args.device)
+            text_features = clip_model.encode_text(text)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            ###########
+            torch.manual_seed(5)
+            mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
+            noise = torch.Tensor(num_figs-1, args.emb_dims).normal_().to(args.device) 
+            noise = torch.clip(noise, min=-1, max=1)
+            noise = torch.cat([mean_shape, noise], dim=0)
+            decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
+
+
+            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
+            shape_embs_torch.append(decoder_embs)
+            shape_embs = [text_in, new_reduced]
     else:
         print("no query")
     return jsonify(shape_embs)
@@ -146,16 +266,13 @@ def get_embeddings_by_text_query():
 @app.route('/update_voxel', methods=['GET', 'POST'])
 def update_voxel():
     new_voxel_data = [request.json]
-    # print(voxel_data)
     new_voxel_data = np.array(new_voxel_data)
-    print(new_voxel_data)
     new_voxel_data = torch.Tensor(new_voxel_data)
-    print(new_voxel_data.shape)
     new_voxel_emb = net.encoder(new_voxel_data.type(torch.FloatTensor).to(args.device))
-    print(new_voxel_emb)
     shape_embs_torch.append(new_voxel_emb)
-    # new_reduced = pca.transform(new_voxel_emb)
-    return jsonify('')
+    new_reduced = pca.transform(new_voxel_emb.detach().cpu().numpy()).tolist()
+    
+    return jsonify(new_reduced)
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
@@ -186,7 +303,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
             res_emb = torch.lerp(torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval), torch.lerp(shape_embs_torch[idx2], shape_embs_torch[idx3], xval), yval)
         out = net.decoding(res_emb, query_points)
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-    # return jsonify([90])
+
     return jsonify(voxels_out[0].tolist())
 
 ##################################### Main and Parser stuff #################################################
@@ -198,8 +315,13 @@ if __name__ == '__main__':
     global latent_flow_model
     global clip_model
     global shape_embs_torch
-    global pca
-    pca = PCA(n_components=2)
+    global shape_embs_list
+    global tsne
+    global kmeans
+
+    shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+    tsne = TSNE(n_components=2, random_state=42)
+    kmeans = KMeans(n_clusters=13, random_state=42)
     shape_embs_torch = []
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
