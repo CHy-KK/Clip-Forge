@@ -1,5 +1,5 @@
-2024-03-06 07:20:29,862 - INFO - #############################
-2024-03-06 07:20:33,368 - INFO - Loaded the autoencoder: ./exps/models/autoencoder/best_iou.pt
-2024-03-06 07:20:38,001 - INFO - Loaded the nf model: ./exps/models/prior/best.pt
-2024-03-06 07:20:38,045 - INFO - #############################
-2024-03-06 07:20:38,045 - INFO - Conducting the experiment save_voxel_on_query
+2024-03-06 07:43:33,666 - INFO - #############################
+2024-03-06 07:43:36,946 - INFO - Loaded the autoencoder: ./exps/models/autoencoder/best_iou.pt
+2024-03-06 07:43:41,568 - INFO - Loaded the nf model: ./exps/models/prior/best.pt
+2024-03-06 07:43:41,611 - INFO - #############################
+2024-03-06 07:43:41,611 - INFO - Conducting the experiment save_voxel_on_query

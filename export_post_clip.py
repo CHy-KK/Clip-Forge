@@ -126,7 +126,7 @@ def initialize_overview():
     global tsne
     global kmeans
     shape_embs = []
-    with open ('init_data.csv', 'r') as f:
+    with open ('init_data_simple.csv', 'r') as f:
         reader = csv.reader(f)
         num_limit = 100
         for row in tqdm(reader):
