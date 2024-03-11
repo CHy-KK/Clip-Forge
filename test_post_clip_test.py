@@ -24,6 +24,7 @@ from train_autoencoder import experiment_name, parsing
 from train_post_clip import get_dataloader, experiment_name2, get_condition_embeddings, get_local_parser, get_clip_model
 from dataset import shapenet_dataset
 from networks import autoencoder, latent_flows
+import json
 
 import clip
 
@@ -290,6 +291,7 @@ def save_voxel_images(net, latent_flow_model, clip_model, args, total_text_query
             noise = torch.cat([mean_shape, noise], dim=0)
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
 
+            print(query_points.shape)
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
             
@@ -412,8 +414,75 @@ def get_local_parser_test(mode="args"):
         return args
     else:
         return parser
-    
+
+def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
+    model.eval()
+    clip_model.eval()
+    resolution = 64
+    num_figs = 1
+    with torch.no_grad():
+        for i in range(0, times):
+            print('dataloader size = ' + str(len(dataloader)))
+            for data in tqdm(dataloader):
+              
+                voxel_size = resolution
+                shape = (voxel_size, voxel_size, voxel_size)
+                p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+                query_points = p.expand(3, *p.size())
+              
+                data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
+                shape_torch = model.encoder(data_input)
+                shape_emb = shape_torch.detach().cpu().numpy().tolist()
+                # out = model.decoding(shape_torch, query_points)
+                # voxels_out = (out.view(3, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+                # voxel_num = 0
+                # for voxel_in in voxels_out:
+                #     out_file = os.path.join("test_gen/", "testgen_" + str(voxel_num) + ".png")
+                #     voxel_save(voxel_in, None, out_file=out_file)
+                #     voxel_num = voxel_num + 1
+                    
+                batch_idx = 0
+                for emb in shape_emb:
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append(emb)
+                    batch_idx += 1
+                
+id2text = {
+  '04256520': 'sofa',
+  '02691156': 'plane',
+  '03636649': 'lamp',
+  '04401088': 'telephone',
+  '03691459': 'speaker',
+  '03001627': 'chair',
+  '02933112': "cabinet",
+  '04379243': 'table',
+  '03211117': 'display',
+  '02958343': 'car',
+  '02828884': 'bench',
+  '04090263': 'rifle',
+  '04530566': 'vessel'
+}
+
+shape_embedding_record = {
+  'sofa':[],
+  'plane':[],
+  'lamp':[],
+  'telephone':[],
+  'speaker':[],
+  'chair':[],
+  'table':[],
+  'display':[],
+  'car':[],
+  'bench':[],
+  'rifle':[],
+  "cabinet":[],
+  'vessel':[]
+}
+
 def main():
+
+    global id2text
+    global shape_embedding_record
+
     args = get_local_parser_test() 
     print (args)
     ### Directories for generating stuff and logs    cls_cal_category
@@ -429,16 +498,16 @@ def main():
     helper.set_seed(manualSeed)
 
     ### Dataloader stuff 
-    if args.experiment_mode not in ["save_voxel_on_query", "cls_cal_single", "cls_cal_category", "gen_embeddings_on_query"]:
-        logging.info("#############################")
-        train_dataloader, total_shapes  = get_dataloader(args, split="train")
-        args.total_shapes = total_shapes
-        logging.info("Train Dataset size: {}".format(total_shapes))
-        val_dataloader, total_shapes_val  = get_dataloader(args, split="val")
-        logging.info("Val Dataset size: {}".format(total_shapes_val))
-        test_dataloader, total_shapes_test, test_dataset  = get_dataloader(args, split="test", dataset_flag=True)
-        logging.info("Test Dataset size: {}".format(total_shapes_test))
-        logging.info("#############################")
+    # if args.experiment_mode not in ["save_voxel_on_query", "cls_cal_single", "cls_cal_category", "gen_embeddings_on_query"]:
+    logging.info("#############################")
+    train_dataloader, total_shapes, train_dataset  = get_dataloader(args, split="train")
+    args.total_shapes = total_shapes
+    # logging.info("Train Dataset size: {}".format(total_shapes))
+    # val_dataloader, total_shapes_val  = get_dataloader(args, split="val")
+    # logging.info("Val Dataset size: {}".format(total_shapes_val))
+    # test_dataloader, total_shapes_test, test_dataset  = get_dataloader(args, split="test", dataset_flag=True)
+    # logging.info("Test Dataset size: {}".format(total_shapes_test))
+    logging.info("#############################")
 
     device, gpu_array = helper.get_device(args)
     args.device = device     
@@ -468,100 +537,105 @@ def main():
 
     logging.info("Conducting the experiment {}".format(args.experiment_mode))
 
-    if args.experiment_mode == "fid_cal":
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        generated_voxels, _ = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
-        true_voxels  = get_true_voxels(test_dataloader, args)
-        logging.info("Size of  generated {} and true voxel is {}".format(generated_voxels.shape, true_voxels.shape))
+    gen_shape_embeddings(args, net, clip_model, train_dataloader, times=1)
 
-        import classifier 
-        from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
+    with open('initial_text_query_simple.json', 'w') as f:
+      json.dump(shape_embedding_record, f)
 
-        cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
-        cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
-        cls.load_state_dict(cls_checkpoint['model'])
-        activations1, _ = classifier.get_activations(true_voxels, cls, args)
-        activations2, _ = classifier.get_activations(generated_voxels, cls, args)
+    # if args.experiment_mode == "fid_cal":
+    #     torch.multiprocessing.set_sharing_strategy('file_system')
+    #     generated_voxels, _ = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
+    #     true_voxels  = get_true_voxels(test_dataloader, args)
+    #     logging.info("Size of  generated {} and true voxel is {}".format(generated_voxels.shape, true_voxels.shape))
 
-        logging.info("Size of activatation for true {} and generated voxel is {}".format(activations1.shape, activations2.shape))
+    #     import classifier 
+    #     from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
 
-        mu1, sigma1 = calculate_activation_statistics(activations1)
-        mu2, sigma2 = calculate_activation_statistics(activations2)
-        fid_score = calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6)
-        logging.info("FID score is: {}".format(fid_score))
+    #     cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
+    #     cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
+    #     cls.load_state_dict(cls_checkpoint['model'])
+    #     activations1, _ = classifier.get_activations(true_voxels, cls, args)
+    #     activations2, _ = classifier.get_activations(generated_voxels, cls, args)
 
-    elif args.experiment_mode == "cls_cal_single":
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        generated_voxels, query_labels = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
-        logging.info("Size of  generated voxel is {} and label length {}".format(generated_voxels.shape, len(query_labels)))
+    #     logging.info("Size of activatation for true {} and generated voxel is {}".format(activations1.shape, activations2.shape))
+
+    #     mu1, sigma1 = calculate_activation_statistics(activations1)
+    #     mu2, sigma2 = calculate_activation_statistics(activations2)
+    #     fid_score = calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6)
+    #     logging.info("FID score is: {}".format(fid_score))
+
+    # elif args.experiment_mode == "cls_cal_single":
+    #     torch.multiprocessing.set_sharing_strategy('file_system')
+    #     generated_voxels, query_labels = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
+    #     logging.info("Size of  generated voxel is {} and label length {}".format(generated_voxels.shape, len(query_labels)))
         
-        import classifier 
-        from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
-        from sklearn.metrics import accuracy_score
+    #     import classifier 
+    #     from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
+    #     from sklearn.metrics import accuracy_score
         
-        cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
-        cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
-        cls.load_state_dict(cls_checkpoint['model'])
+    #     cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
+    #     cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
+    #     cls.load_state_dict(cls_checkpoint['model'])
 
-        activations, pred_labels = classifier.get_activations(generated_voxels, cls, args)
-        logging.info("Size of  activations  is {} and pred labels is {}".format(activations.shape, pred_labels.shape))
+    #     activations, pred_labels = classifier.get_activations(generated_voxels, cls, args)
+    #     logging.info("Size of  activations  is {} and pred labels is {}".format(activations.shape, pred_labels.shape))
 
-        acc = 100*accuracy_score(query_labels, pred_labels)
-        logging.info("Cls score is: {}".format(acc))    
-    elif args.experiment_mode == "cls_cal_category":
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        generated_voxels, query_labels = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
+    #     acc = 100*accuracy_score(query_labels, pred_labels)
+    #     logging.info("Cls score is: {}".format(acc))    
+    # elif args.experiment_mode == "cls_cal_category":
+    #     torch.multiprocessing.set_sharing_strategy('file_system')
+    #     generated_voxels, query_labels = generate_voxel_32(net, latent_flow_network, clip_model, args, num_figs_per_query=1)
      
-        logging.info("Size of  generated voxel is {} and label length {}".format(generated_voxels.shape, len(query_labels)))
+    #     logging.info("Size of  generated voxel is {} and label length {}".format(generated_voxels.shape, len(query_labels)))
         
-        import classifier 
-        from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
-        from sklearn.metrics import accuracy_score
+    #     import classifier 
+    #     from fid_cal import  calculate_activation_statistics, calculate_frechet_distance
+    #     from sklearn.metrics import accuracy_score
         
-        cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
-        cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
-        cls.load_state_dict(cls_checkpoint['model'])
+    #     cls = classifier.classifier_32("Voxel_Encoder_BN", 13).to(args.device)
+    #     cls_checkpoint = torch.load(args.classifier_checkpoint, map_location=args.device)
+    #     cls.load_state_dict(cls_checkpoint['model'])
 
-        activations, pred_labels = classifier.get_activations(generated_voxels, cls, args)
-        logging.info("Size of  activations  is {} and pred labels is {}".format(activations.shape, pred_labels.shape))
+    #     activations, pred_labels = classifier.get_activations(generated_voxels, cls, args)
+    #     logging.info("Size of  activations  is {} and pred labels is {}".format(activations.shape, pred_labels.shape))
         
-        conf_matrix = confusion_matrix(query_labels, pred_labels)
-        count  = 0
-        for i in conf_matrix:
-            category_name =  label_to_category[count]
-            total_labels = query_labels.count(count)
-            acc = (conf_matrix[count,count]/ total_labels) *100
-            logging.info("Cls score for class {}, total labels {} is: {}".format(category_name, total_labels, acc))
-            count = count + 1
-        acc = 100*accuracy_score(query_labels, pred_labels)
-        logging.info("Cls score is: {}".format(acc))   
-    elif args.experiment_mode == "save_voxel_on_query":
-        save_path = args.vis_gen_dir
-        if not os.path.exists(save_path):
-            os.makedirs(save_path) 
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        if args.text_query is None:
-            logging.info("Please add text query using text_query args argument")
-        else: 
-            save_voxel_images(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
-            # save_voxel_images_lerp_2(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
-    elif args.experiment_mode == "gen_embeddings_on_query":
-        save_path = args.vis_gen_dir
-        if not os.path.exists(save_path):
-            os.makedirs(save_path) 
-        torch.multiprocessing.set_sharing_strategy('file_system')
-        embs_gen = []
-        if args.text_query is None:
-            logging.info("Please add text query using text_query args argument")
-        else: 
-            embs_gen = gen_embeddings(latent_flow_network, clip_model, args, args.text_query, args.output_dir, num_figs_per_query=1)
-        if (len(embs_gen) == 4):
-            while (True):
-                xval = float(input("xval: "))
-                yval = float(input("yval: "))
-                if (xval < 0 or yval < 0):
-                    break
-                embs2voxel_lerp4(net, args, embs_gen, save_path, xval, yval, resolution=64, num_figs_per_query=1)
+    #     conf_matrix = confusion_matrix(query_labels, pred_labels)
+    #     count  = 0
+    #     for i in conf_matrix:
+    #         category_name =  label_to_category[count]
+    #         total_labels = query_labels.count(count)
+    #         acc = (conf_matrix[count,count]/ total_labels) *100
+    #         logging.info("Cls score for class {}, total labels {} is: {}".format(category_name, total_labels, acc))
+    #         count = count + 1
+    #     acc = 100*accuracy_score(query_labels, pred_labels)
+    #     logging.info("Cls score is: {}".format(acc))   
+    # elif args.experiment_mode == "save_voxel_on_query":
+    #     save_path = args.vis_gen_dir
+    #     if not os.path.exists(save_path):
+    #         os.makedirs(save_path) 
+    #     torch.multiprocessing.set_sharing_strategy('file_system')
+    #     if args.text_query is None:
+    #         logging.info("Please add text query using text_query args argument")
+    #     else: 
+    #         save_voxel_images(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
+    #         # save_voxel_images_lerp_2(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
+    # elif args.experiment_mode == "gen_embeddings_on_query":
+    #     save_path = args.vis_gen_dir
+    #     if not os.path.exists(save_path):
+    #         os.makedirs(save_path) 
+    #     torch.multiprocessing.set_sharing_strategy('file_system')
+    #     embs_gen = []
+    #     if args.text_query is None:
+    #         logging.info("Please add text query using text_query args argument")
+    #     else: 
+    #         embs_gen = gen_embeddings(latent_flow_network, clip_model, args, args.text_query, args.output_dir, num_figs_per_query=1)
+    #     if (len(embs_gen) == 4):
+    #         while (True):
+    #             xval = float(input("xval: "))
+    #             yval = float(input("yval: "))
+    #             if (xval < 0 or yval < 0):
+    #                 break
+    #             embs2voxel_lerp4(net, args, embs_gen, save_path, xval, yval, resolution=64, num_figs_per_query=1)
 
         
 if __name__ == "__main__":
