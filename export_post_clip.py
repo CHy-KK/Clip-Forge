@@ -42,9 +42,10 @@ from werkzeug.routing import BaseConverter
 
 from PIL import Image
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, RandomResizedCrop, ColorJitter
+from flask_cors import CORS 
 
 app = Flask(__name__)
-
+CORS(app)
 
 class RegexConverter(BaseConverter):
     def __init__(self, url_map, *args):
