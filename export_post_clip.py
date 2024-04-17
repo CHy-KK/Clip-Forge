@@ -212,12 +212,13 @@ def get_embeddings_by_image():
 
             shape_embs_torch.append(decoder_embs)
             shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
-            reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
-            kmeans.fit(shape_embs_list)
+            # 这里tsne和kmeans好像有点问题，先只拿体素看能不能生成吧
+            # reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+            # kmeans.fit(shape_embs_list)
             shape_embs.append([image_name, None, None])
-            for i in tqdm(range(len(shape_embs_list))):
-                shape_embs[i][1] = reduced_shape_embs[i]
-                shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
+            # for i in tqdm(range(len(shape_embs_list))):
+            #     shape_embs[i][1] = reduced_shape_embs[i]
+            #     shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
 
             # gen voxel
             voxel_size = 64
