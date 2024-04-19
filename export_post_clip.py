@@ -124,8 +124,13 @@ def index():
 def initialize_overview():
     global shape_embs_torch
     global shape_embs_list
+    global clsList
+    global cls_avg_embs
+    global shape_embs_cls
+    global shape_embs_sim
     global tsne
     global kmeans
+
     shape_embs = []
     with open ('init_data_simple.csv', 'r') as f:
         reader = csv.reader(f)
@@ -139,20 +144,27 @@ def initialize_overview():
      
             
         print (len(shape_embs))
-        print (len(shape_embs_list))
+        print (len(shape_embs_list[0]))
+        print (type(shape_embs_list[0]))
         print (len(shape_embs_torch))
         reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
         print("tsne finish")
         kmeans.fit(shape_embs_list)
         print("kmeans finish")
         num_figs = 1
-        clslist = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+        for i in range(13):
+            clsList.append([])
+
+        # testlist = np.array([0,1,2,3,4,5,6])
+        # print(np.mean(testlist[np.array([2,3,4])]))
         for i in tqdm(range(len(shape_embs_list))):
-            shape_embs[i].append([reduced_shape_embs[i], str(kmeans.predict(shape_embs_list[i].reshape(1, -1))[0])])
+            clusterPredicted = kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]
+            shape_embs[i].append([reduced_shape_embs[i], str(clusterPredicted)])
+            clsList[clusterPredicted].append(i)
+            shape_embs_cls.append(clusterPredicted)
+            
             # print(kmeans.predict(shape_embs_list[i].reshape(1, -1)) )
-            if (clslist[kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]] >= 0):
-                print(kmeans.predict(shape_embs_list[i].reshape(1, -1))[0])
-                clslist[kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]] = -1
+            
             # if (i == 0):
             #     shape = (64, 64, 64)
             #     p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
@@ -161,7 +173,20 @@ def initialize_overview():
             #     voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
             #     img = gen_image(voxels_out[0])
             #     shape_embs[i].append(img)
-        
+        for i in range(len(clsList)):
+            cls_avg_embs.append(np.mean(shape_embs_list[np.array(clsList[i])], axis=0))
+
+        shape_embs_sim = np.empty((len(shape_embs_list), len(cls_avg_embs)))
+        print('cal cosine sim for embs and cluster centroid')
+        for i in tqdm(range(len(shape_embs_list))):
+            for j in (range(len(cls_avg_embs))):
+                dot = np.dot(shape_embs_list[i], cls_avg_embs[j])
+                v1norm = np.linalg.norm(shape_embs_list[i])
+                v2norm = np.linalg.norm(cls_avg_embs[j])
+                shape_embs_sim[i][j] = dot / (v1norm * v2norm)
+            shape_embs[i].append(shape_embs_sim[i].tolist())
+
+
     print("initialize finished")
     return jsonify(shape_embs)
   
@@ -318,10 +343,17 @@ if __name__ == '__main__':
     global clip_model
     global shape_embs_torch
     global shape_embs_list
+    global clsList      # 记录每个分类下数据点在shape_embs_list中的下标（分类 -> 数据
+    global cls_avg_embs     # 记录每个分类下的质心数据点
+    global shape_embs_cls       # 记录每个数据点的分类（数据 -> 分类
+    global shape_embs_sim       # 记录每个数据点在各个类别上的相似度
     global tsne
     global kmeans
 
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+    clsList = []
+    cls_avg_embs = []
+    shape_embs_cls = []
     tsne = TSNE(n_components=2, random_state=42)
     kmeans = KMeans(n_clusters=13, random_state=42)
     shape_embs_torch = []
