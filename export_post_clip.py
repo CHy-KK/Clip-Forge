@@ -135,7 +135,7 @@ def initialize_overview():
     global shape_embs_position
 
     shape_embs = []
-    with open ('init_data.csv', 'r') as f:
+    with open ('init_data_simple.csv', 'r') as f:
         reader = csv.reader(f)
         num_limit = 100
         for row in tqdm(reader):
@@ -150,7 +150,7 @@ def initialize_overview():
         print (len(shape_embs_list[0]))
         print (type(shape_embs_list[0]))
         print (len(shape_embs_torch))
-        shape_embs_position = tsne.fit_transform(shape_embs_list).tolist()
+        shape_embs_position = tsne.fit_transform(shape_embs_list)
         print("tsne finish")
         kmeans.fit(shape_embs_list)
         print("kmeans finish")
@@ -162,7 +162,7 @@ def initialize_overview():
         # print(np.mean(testlist[np.array([2,3,4])]))
         for i in tqdm(range(len(shape_embs_list))):
             clusterPredicted = kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]
-            shape_embs[i].append([shape_embs_position[i], str(clusterPredicted)])
+            shape_embs[i].append([shape_embs_position[i].tolist(), str(clusterPredicted)])
             clsList[clusterPredicted].append(i)
             shape_embs_cls.append(clusterPredicted)
             
@@ -198,13 +198,25 @@ def initialize_overview():
 def get_contour_img():
     global shape_embs_position
     global shape_embs_sim
-    xVal = np.array([row[0] for row in shape_embs_position])
-    yVal = np.array([row[1] for row in shape_embs_position])
-    zVal = np.array([row[0] for row in shape_embs_sim.tolist()])
+    
+    sampleIdxList = request.form.get('sample').split(',')
+    contourCenterCls = int(request.form.get('centerType'))
+    print(sampleIdxList)
+    xVal = np.array(0)
+    yVal = np.array(0)
+    zVal = np.array(0)
+    if (sampleIdxList[0] != ''):
+        sampleIdxList = [int(i) for i in sampleIdxList]
+        xVal = np.array([row[0] for row in shape_embs_position[np.array(sampleIdxList)].tolist()])
+        yVal = np.array([row[1] for row in shape_embs_position[np.array(sampleIdxList)].tolist()])
+        zVal = np.array([row[contourCenterCls] for row in shape_embs_sim[np.array(sampleIdxList)].tolist()])
+    else:
+        xVal = np.array([row[0] for row in shape_embs_position])
+        yVal = np.array([row[1] for row in shape_embs_position])
+        zVal = np.array([row[contourCenterCls] for row in shape_embs_sim])
     print(zVal)
     xl = np.linspace(min(xVal), max(xVal), 1000)
     yl = np.linspace(min(yVal), max(yVal), 1000)
-    zl = np.linspace(min(zVal), max(zVal), 1000)
     print (min(zVal))
     print (max(zVal))
     grid_x, grid_y = np.meshgrid(xl, yl)
