@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas  
+from scipy.interpolate import griddata
+from scipy.interpolate import RegularGridInterpolator
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -130,9 +132,10 @@ def initialize_overview():
     global shape_embs_sim
     global tsne
     global kmeans
+    global shape_embs_position
 
     shape_embs = []
-    with open ('init_data_simple.csv', 'r') as f:
+    with open ('init_data.csv', 'r') as f:
         reader = csv.reader(f)
         num_limit = 100
         for row in tqdm(reader):
@@ -147,7 +150,7 @@ def initialize_overview():
         print (len(shape_embs_list[0]))
         print (type(shape_embs_list[0]))
         print (len(shape_embs_torch))
-        reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+        shape_embs_position = tsne.fit_transform(shape_embs_list).tolist()
         print("tsne finish")
         kmeans.fit(shape_embs_list)
         print("kmeans finish")
@@ -159,7 +162,7 @@ def initialize_overview():
         # print(np.mean(testlist[np.array([2,3,4])]))
         for i in tqdm(range(len(shape_embs_list))):
             clusterPredicted = kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]
-            shape_embs[i].append([reduced_shape_embs[i], str(clusterPredicted)])
+            shape_embs[i].append([shape_embs_position[i], str(clusterPredicted)])
             clsList[clusterPredicted].append(i)
             shape_embs_cls.append(clusterPredicted)
             
@@ -185,14 +188,46 @@ def initialize_overview():
                 v2norm = np.linalg.norm(cls_avg_embs[j])
                 shape_embs_sim[i][j] = dot / (v1norm * v2norm)
             shape_embs[i].append(shape_embs_sim[i].tolist())
-
+        
+        
 
     print("initialize finished")
     return jsonify(shape_embs)
+
+@app.route('/get_contour_img', methods=['GET', 'POST'])
+def get_contour_img():
+    global shape_embs_position
+    global shape_embs_sim
+    xVal = np.array([row[0] for row in shape_embs_position])
+    yVal = np.array([row[1] for row in shape_embs_position])
+    zVal = np.array([row[0] for row in shape_embs_sim.tolist()])
+    print(zVal)
+    xl = np.linspace(min(xVal), max(xVal), 1000)
+    yl = np.linspace(min(yVal), max(yVal), 1000)
+    zl = np.linspace(min(zVal), max(zVal), 1000)
+    print (min(zVal))
+    print (max(zVal))
+    grid_x, grid_y = np.meshgrid(xl, yl)
+
+    grid_z = np.clip(griddata((xVal, yVal), zVal, (grid_x, grid_y), method='cubic'), -1.0, 1.0)
+
+    # print(grid_z)
+    fig, ax = plt.subplots(figsize=(3, 3))
+    contour = ax.contour(grid_x, grid_y, grid_z, levels=5, cmap='viridis', linewidths=0.2)
+    ax.axis('off')
+    image_data = io.BytesIO()
+    fig.set_facecolor('#111111')
+    fig.savefig(image_data, bbox_inches='tight', dpi=300, pad_inches=0)  # 保存图像，DPI设置为300
+    fig.colorbar(contour, ax=ax)
+    fig.set_facecolor('#ffffff')
+    fig.savefig('contout.png', dpi=300, pad_inches=0)  # 保存图像，DPI设置为300
+    
+    encoded_image = base64.b64encode(image_data.getvalue()).decode('utf-8')  
+    plt.close(fig) 
+    return { 'image': encoded_image }
   
 @app.route('/get_embeddings_by_image', methods=['POST'])
 def get_embeddings_by_image():
-  
     global shape_embs_torch
     global shape_embs_list
     global tsne
@@ -238,11 +273,11 @@ def get_embeddings_by_image():
             shape_embs_torch.append(decoder_embs)
             shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
             # 这里tsne和kmeans好像有点问题，先只拿体素看能不能生成吧
-            # reduced_shape_embs = tsne.fit_transform(shape_embs_list).tolist()
+            # shape_embs_position = tsne.fit_transform(shape_embs_list).tolist()
             # kmeans.fit(shape_embs_list)
             shape_embs.append([image_name, None, None])
             # for i in tqdm(range(len(shape_embs_list))):
-            #     shape_embs[i][1] = reduced_shape_embs[i]
+            #     shape_embs[i][1] = shape_embs_position[i]
             #     shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
 
             # gen voxel
@@ -347,13 +382,16 @@ if __name__ == '__main__':
     global cls_avg_embs     # 记录每个分类下的质心数据点
     global shape_embs_cls       # 记录每个数据点的分类（数据 -> 分类
     global shape_embs_sim       # 记录每个数据点在各个类别上的相似度
+    global shape_embs_position  # 记录每个生成点的二维坐标
     global tsne
     global kmeans
+    
 
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
     clsList = []
     cls_avg_embs = []
     shape_embs_cls = []
+    shape_embs_position = []
     tsne = TSNE(n_components=2, random_state=42)
     kmeans = KMeans(n_clusters=13, random_state=42)
     shape_embs_torch = []
