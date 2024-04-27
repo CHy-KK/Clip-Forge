@@ -214,11 +214,9 @@ def get_contour_img():
         xVal = np.array([row[0] for row in shape_embs_position])
         yVal = np.array([row[1] for row in shape_embs_position])
         zVal = np.array([row[contourCenterCls] for row in shape_embs_sim])
-    print(zVal)
+        
     xl = np.linspace(min(xVal), max(xVal), 1000)
     yl = np.linspace(min(yVal), max(yVal), 1000)
-    print (min(zVal))
-    print (max(zVal))
     grid_x, grid_y = np.meshgrid(xl, yl)
 
     grid_z = np.clip(griddata((xVal, yVal), zVal, (grid_x, grid_y), method='cubic'), -1.0, 1.0)
@@ -227,16 +225,26 @@ def get_contour_img():
     fig, ax = plt.subplots(figsize=(3, 3))
     contour = ax.contour(grid_x, grid_y, grid_z, levels=5, cmap='viridis', linewidths=0.2)
     ax.axis('off')
-    image_data = io.BytesIO()
+    level_info = []
+    for i, ct in enumerate(contour.collections):
+        ctColor = ct.get_color()
+        level_info.append([[ctColor[0][0], ctColor[0][1], ctColor[0][2]], contour.levels[i]])
+    print(level_info)
     fig.set_facecolor('#111111')
+    image_data = io.BytesIO()
     fig.savefig(image_data, bbox_inches='tight', dpi=300, pad_inches=0)  # 保存图像，DPI设置为300
-    fig.colorbar(contour, ax=ax)
-    fig.set_facecolor('#ffffff')
-    fig.savefig('contout.png', dpi=300, pad_inches=0)  # 保存图像，DPI设置为300
-    
     encoded_image = base64.b64encode(image_data.getvalue()).decode('utf-8')  
+    # 本地测试打印
+    # fig.colorbar(contour, ax=ax)
+    # fig.set_facecolor('#ffffff')
+    # fig.savefig('contout.png', dpi=300, pad_inches=0)  # 保存图像，DPI设置为300
+
+    
     plt.close(fig) 
-    return { 'image': encoded_image }
+    return { 
+        'image': encoded_image,
+        'levelInfo': level_info
+    }
   
 @app.route('/get_embeddings_by_image', methods=['POST'])
 def get_embeddings_by_image():
