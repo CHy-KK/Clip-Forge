@@ -295,7 +295,8 @@ def get_embeddings_by_image():
             # 这里tsne和kmeans好像有点问题，先只拿体素看能不能生成吧
             # shape_embs_position = tsne.fit_transform(shape_embs_list).tolist()
             # kmeans.fit(shape_embs_list)
-            shape_embs.append([image_name, None, None])
+            shape_embs.append(image_name)
+            shape_embs.append(decoder_embs.tolist())
             # for i in tqdm(range(len(shape_embs_list))):
             #     shape_embs[i][1] = shape_embs_position[i]
             #     shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
@@ -312,9 +313,9 @@ def get_embeddings_by_image():
         print("no image")
     return jsonify([shape_embs, voxels_out[0].tolist()])
  
-@app.route('/get_embeddings_by_text_query', methods=['GET', 'POST'])
+@app.route('/get_embeddings_by_text_query', methods=['POST'])
 def get_embeddings_by_text_query():
-    text_in = request.json
+    text_in = request.form.get('prompt')
     print (text_in)
     global shape_embs_torch
     shape_embs = []
@@ -336,13 +337,22 @@ def get_embeddings_by_text_query():
             noise = torch.clip(noise, min=-1, max=1)
             noise = torch.cat([mean_shape, noise], dim=0)
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
-
-
-            new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
+            
+            # 现在用的tsne降维，无法添加新的点进去，暂时不做降维
+            # new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
             shape_embs_torch.append(decoder_embs)
-            shape_embs = [text_in, new_reduced]
+
+            voxel_size = 64
+            shape = (voxel_size, voxel_size, voxel_size)
+            p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+            query_points = p.expand(num_figs, *p.size())
+            out = net.decoding(decoder_embs, query_points)
+            voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+            
+            shape_embs = [text_in, voxels_out[0].tolist(), decoder_embs.tolist()]
     else:
         print("no query")
+    
     return jsonify(shape_embs)
 
 @app.route('/update_voxel', methods=['GET', 'POST'])
@@ -386,7 +396,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
         out = net.decoding(res_emb, query_points)
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
 
-    return jsonify(voxels_out[0].tolist())
+    return jsonify([voxels_out[0].tolist(), res_emb.tolist()])
 
 ##################################### Main and Parser stuff #################################################
 
