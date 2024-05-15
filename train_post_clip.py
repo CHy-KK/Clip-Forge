@@ -179,7 +179,8 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 elif args.input_type == "Pointcloud":
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
-            
+                print (data_input)
+                print('----------------------------')
                 shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
                 
                 shape = (64, 64, 64)
