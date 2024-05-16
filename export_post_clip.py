@@ -45,7 +45,7 @@ from werkzeug.routing import BaseConverter
 from PIL import Image
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize, RandomResizedCrop, ColorJitter
 from flask_cors import CORS 
-from dataset.binvox_rw import Voxels
+from dataset.binvox_rw import Voxels, read_as_3d_array
 
 app = Flask(__name__)
 CORS(app)
@@ -362,20 +362,24 @@ def upload_voxel():
     # print(new_voxel_data_str)
     new_voxel_data = []
 
-    new_voxel_grid = np.zeros((64, 64, 64))
+    new_voxel_grid = np.zeros((32, 32, 32))
     for ele in new_voxel_data_str:
         pos = tuple(map(float, ele.split(',')))
-        print(pos[0], pos[1], pos[2])
-        new_voxel_grid[int(pos[0]) + 32, int(pos[1]) + 32, int(pos[2]) + 32] = 1
+        new_voxel_grid[int((pos[0] + 32) * 0.5), int((pos[1] + 32) * 0.5), int((pos[2] + 32) * 0.5)] = 1
         new_voxel_data.append(pos)
+    # new_voxel_grid = 
+    # for x in range(0, 63, 2):
+    #     for y in range(0, 63, 2):
+    #         for z in range(0, 63, 2):
+
+
+
     # print(new_voxel_data)
     #TODO 用shapenet_dataset.py里的VoxelsField尝试读一下model.binvox文件看看读出来到底是啥效果
-    # new_voxel_grid = torch.Tensor(new_voxel_grid)
-    new_voxel_grid = torch.Tensor(Voxels(new_voxel_grid, [64, 64, 64], [0, 0, 0], 1, 'xyz').data.astype(np.float32))
-    new_voxel_emb = net.encoder(new_voxel_grid.type(torch.FloatTensor).to(args.device))
-    # shape_embs_torch.append(new_voxel_emb)
-    # new_reduced = pca.transform(new_voxel_emb.detach().cpu().numpy()).tolist()
-    
+    new_voxel_grid = torch.Tensor([new_voxel_grid])
+    print(new_voxel_grid.shape)
+    new_voxel_emb = net.encoder(new_voxel_grid.type(torch.FloatTensor).to(args.device)).detach().cpu().numpy().tolist()
+  
     return jsonify(new_voxel_emb)
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上

@@ -87,10 +87,6 @@ def get_dataloader(args, split="train", dataset_flag=False):
         fields['points'] = points_field
         fields['voxels'] = voxel_fields
         fields['images'] = image_field
-        print("in data loader")
-        print("in data loader")
-        print("in data loader")
-        print("in data loader")
         
         def my_collate(batch):
             batch =  list(filter(lambda x : x is not None, batch))
@@ -135,7 +131,7 @@ def voxel_save(voxels, text_name, out_file=None, transpose=True, show=False):
         voxels = voxels.transpose(2, 0, 1)
     #else:
         #voxels = voxels.transpose(2, 0, 1)
-    
+        
 
     ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
     ax.set_xlabel('Z')
@@ -179,9 +175,10 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 elif args.input_type == "Pointcloud":
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
-                print (data_input)
+                print (data_input.shape)
                 print('----------------------------')
                 shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
+                print (len(shape_emb))
                 
                 shape = (64, 64, 64)
                 p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
