@@ -202,7 +202,6 @@ def get_contour_img():
     
     sampleIdxList = request.form.get('sample').split(',')
     contourCenterCls = int(request.form.get('centerType'))
-    print(sampleIdxList)
     xVal = np.array(0)
     yVal = np.array(0)
     zVal = np.array(0)
@@ -222,7 +221,6 @@ def get_contour_img():
 
     grid_z = np.clip(griddata((xVal, yVal), zVal, (grid_x, grid_y), method='cubic'), -1.0, 1.0)
 
-    # print(grid_z)
     fig, ax = plt.subplots(figsize=(3, 3))
     contour = ax.contour(grid_x, grid_y, grid_z, levels=5, cmap='viridis', linewidths=0.2)
     ax.axis('off')
@@ -230,7 +228,6 @@ def get_contour_img():
     for i, ct in enumerate(contour.collections):
         ctColor = ct.get_color()
         level_info.append([[ctColor[0][0], ctColor[0][1], ctColor[0][2]], contour.levels[i]])
-    print(level_info)
     fig.set_facecolor('#111111')
     image_data = io.BytesIO()
     fig.savefig(image_data, bbox_inches='tight', dpi=300, pad_inches=0)  # 保存图像，DPI设置为300
@@ -268,7 +265,6 @@ def get_embeddings_by_image():
     ])
     
     image_tensor = transform_image(image_data).unsqueeze(0) 
-    print(image_tensor.shape)
     shape_embs = []
     clip_model.eval()
     latent_flow_model.eval()
@@ -288,8 +284,6 @@ def get_embeddings_by_image():
             noise = torch.cat([mean_shape, noise], dim=0)
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=image_features.repeat(num_figs,1))
 
-
-            print(decoder_embs.shape)
 
             shape_embs_torch.append(decoder_embs)
             shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
@@ -317,13 +311,11 @@ def get_embeddings_by_image():
 @app.route('/get_embeddings_by_text_query', methods=['POST'])
 def get_embeddings_by_text_query():
     text_in = request.form.get('prompt')
-    print (text_in)
     global shape_embs_torch
     shape_embs = []
     clip_model.eval()
     latent_flow_model.eval()
     if (text_in != None):
-        print(text_in)
         with torch.no_grad():
             num_figs = 1
             shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
@@ -377,7 +369,6 @@ def upload_voxel():
     # print(new_voxel_data)
     #TODO 用shapenet_dataset.py里的VoxelsField尝试读一下model.binvox文件看看读出来到底是啥效果
     new_voxel_grid = torch.Tensor([new_voxel_grid])
-    print(new_voxel_grid.shape)
     new_voxel_emb = net.encoder(new_voxel_grid.type(torch.FloatTensor).to(args.device)).detach().cpu().numpy().tolist()
   
     return jsonify(new_voxel_emb)
