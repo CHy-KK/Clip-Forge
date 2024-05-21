@@ -384,26 +384,40 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     net.eval()
     num_figs = 1
     resolution = 64
+    res_emb = shape_embs_torch[0]
+    
+    if (idx1 == -1):    # 1个embedding无插值
+        res_emb = shape_embs_torch[idx0]
+    elif (idx2 == -1):  # 2个embedding 一次线性插值
+        res_emb = torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval)
+    elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
+        res_emb = xval * shape_embs_torch[idx1] + yval * shape_embs_torch[idx2] + (1.0 - xval - yval) * shape_embs_torch[idx0]
+    else:               # 4个embedding 三次线性插值
+        res_emb = torch.lerp(torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval), torch.lerp(shape_embs_torch[idx2], shape_embs_torch[idx3], xval), yval)
+    voxels_out = embedding2voxel(res_emb)
+
+    return jsonify([voxels_out[0].tolist(), res_emb.tolist()])
+
+@app.route('/get_voxel_by_embedding', methods=['POST'])
+def get_voxel_by_embedding():
+    emb = request.form.get('emb')
+    voxels_out = embedding2voxel(emb)
+
+    return jsonify(voxels_out[0].tolist())
+
+def embedding2voxel(emb):
+    net.eval()
+    num_figs = 1
+    resolution = 64
     with torch.no_grad():
         voxel_size = resolution
         shape = (voxel_size, voxel_size, voxel_size)
         p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
         query_points = p.expand(num_figs, *p.size())
 
-        res_emb = shape_embs_torch[0]
-        
-        if (idx1 == -1):    # 1个embedding无插值
-            res_emb = shape_embs_torch[idx0]
-        elif (idx2 == -1):  # 2个embedding 一次线性插值
-            res_emb = torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval)
-        elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
-            res_emb = xval * shape_embs_torch[idx1] + yval * shape_embs_torch[idx2] + (1.0 - xval - yval) * shape_embs_torch[idx0]
-        else:               # 4个embedding 三次线性插值
-            res_emb = torch.lerp(torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval), torch.lerp(shape_embs_torch[idx2], shape_embs_torch[idx3], xval), yval)
-        out = net.decoding(res_emb, query_points)
+        out = net.decoding(emb, query_points)
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-
-    return jsonify([voxels_out[0].tolist(), res_emb.tolist()])
+        return voxels_out
 
 ##################################### Main and Parser stuff #################################################
 
