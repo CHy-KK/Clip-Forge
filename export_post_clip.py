@@ -165,7 +165,7 @@ def initialize_overview():
             clusterPredicted = kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]
             shape_embs[i].append([shape_embs_position[i].tolist(), str(clusterPredicted)])
             clsList[clusterPredicted].append(i)
-            shape_embs_cls.append(clusterPredicted)
+            shape_embs_cls.append(clusterPredicted) 
             
             # print(kmeans.predict(shape_embs_list[i].reshape(1, -1)) )
             
@@ -381,9 +381,9 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     idx1 = int(idx1)
     idx2 = int(idx2)
     idx3 = int(idx3)
-    net.eval()
-    num_figs = 1
-    resolution = 64
+    # net.eval()
+    # num_figs = 1
+    # resolution = 64
     res_emb = shape_embs_torch[0]
     
     if (idx1 == -1):    # 1个embedding无插值
@@ -395,13 +395,19 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     else:               # 4个embedding 三次线性插值
         res_emb = torch.lerp(torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval), torch.lerp(shape_embs_torch[idx2], shape_embs_torch[idx3], xval), yval)
     voxels_out = embedding2voxel(res_emb)
+    print(res_emb)
 
     return jsonify([voxels_out[0].tolist(), res_emb.tolist()])
 
 @app.route('/get_voxel_by_embedding', methods=['POST'])
 def get_voxel_by_embedding():
-    emb = request.form.get('emb')
-    voxels_out = embedding2voxel(emb)
+    emb_list = request.form.get('embedding').strip('[]').split(',')
+
+    emb = [float(num) for num in emb_list]
+    embTensor = torch.tensor([emb]).type(torch.FloatTensor).to(args.device)
+    print(embTensor)
+
+    voxels_out = embedding2voxel(embTensor)
 
     return jsonify(voxels_out[0].tolist())
 
@@ -419,7 +425,7 @@ def embedding2voxel(emb):
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
         return voxels_out
 
-##################################### Main and Parser stuff #################################################
+############################################# Main and Parser stuff #################################################
 
 
 if __name__ == '__main__':
