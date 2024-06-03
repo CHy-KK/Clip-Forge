@@ -540,7 +540,7 @@ def main():
     gen_shape_embeddings(args, net, clip_model, train_dataloader, times=1)
 
     with open('initial_text_query_simple.json', 'w') as f:
-      json.dump(shape_embedding_record, f)
+        json.dump(shape_embedding_record, f)
 
     # if args.experiment_mode == "fid_cal":
     #     torch.multiprocessing.set_sharing_strategy('file_system')

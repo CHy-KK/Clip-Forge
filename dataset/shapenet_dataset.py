@@ -135,6 +135,7 @@ class VoxelsField(Field):
 
         if self.transform is not None:
             voxels = self.transform(voxels)
+
         return voxels
 
     def check_complete(self, files):
@@ -194,10 +195,6 @@ class ImagesField(Field):
         filename = files[idx_img]
 
         image = Image.open(filename).convert('RGB')
-        print('==================================')
-        # print(image.shape)
-        print(image)
-        print('==================================')
         #print(image.size)
         if self.transform is not None:
             image = self.transform(image)
@@ -214,12 +211,7 @@ class ImagesField(Field):
             data['world_mat'] = Rt
             data['camera_mat'] = K
 
-  
-
         return data
-
-    def loadImageOnly():
-      pass
 
     def check_complete(self, files):
         ''' Check if field is complete.
