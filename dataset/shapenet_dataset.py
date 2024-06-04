@@ -1,6 +1,8 @@
 ####### Code build on top of  https://github.com/autonomousvision/occupancy_networks
 
 import os
+import io
+import base64
 import random
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
@@ -135,7 +137,6 @@ class VoxelsField(Field):
 
         if self.transform is not None:
             voxels = self.transform(voxels)
-
         return voxels
 
     def check_complete(self, files):
@@ -195,12 +196,18 @@ class ImagesField(Field):
         filename = files[idx_img]
 
         image = Image.open(filename).convert('RGB')
+        buffered = io.BytesIO()
+        image.save(buffered, format="PNG")
+        img_data = buffered.getvalue()
+        base64_encoded = base64.b64encode(img_data)
+        base64_string = base64_encoded.decode('utf-8')
+
         #print(image.size)
         if self.transform is not None:
             image = self.transform(image)
         
         data = {
-            None: image
+            None: [image, base64_string]
         }
 
         if self.with_camera:

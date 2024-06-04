@@ -76,7 +76,8 @@ def get_dataloader(args, split="train", dataset_flag=False):
         voxel_fields = shapenet_dataset.VoxelsField("model.binvox")
         
         if split == "train":
-            image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=True, n_px=args.n_px)
+            image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=False, n_px=args.n_px)
+            # 原代码：image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=True, n_px=args.n_px)
         else:
             image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=False, n_px=args.n_px)
             
@@ -163,15 +164,18 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
     isPrintData = False
     with torch.no_grad():
         for i in range(0, times):
-            print('dataloader size = ' + str(len(dataloader)))
             data_counter = 0
             for data in tqdm(dataloader):
                 data_counter += 1
-                print('datacounter = ' + str(data_counter))
                 pc = data['pc_org'].type(torch.FloatTensor).to(args.device)
                 query_points, occ = data['points'], data['points.occ']
                 data_index =  data['idx'].to(args.device)
-                image = data['images'].type(torch.FloatTensor).to(args.device)
+                # print('****************************************')
+                # print(data['images'][0].shape)
+                # print('****************************************')
+                # print(len(data['images'][1]))
+                # print(data['images'][1][0])
+                image = data['images'][0].type(torch.FloatTensor).to(args.device)
                
                 query_points = query_points.type(torch.FloatTensor).to(args.device)
                 occ = occ.type(torch.FloatTensor).to(args.device)
@@ -179,11 +183,9 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 elif args.input_type == "Pointcloud":
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
-                print (data_input.shape)
-                print('----------------------------')
                 shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
                 # print (len(shape_emb))
-                 
+                
                 # shape = (64, 64, 64)
                 # p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
                 # query_points = p.expand(1, *p.size())
@@ -196,28 +198,25 @@ def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
                 #     voxel_num = voxel_num + 1
                 # print (shape_emb)
                 batch_idx = 0
+                voxel_list = data['voxels'].tolist()
+
                 for emb in shape_emb:
-                    shape_embedding_record[id2text[data['category'][batch_idx]]].append(emb)
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append([emb, voxel_list[batch_idx], data['images'][1][batch_idx]])
                     batch_idx += 1
                 # print("----------------------------------")
                 # for key, value in shape_embedding_record.items():
                 #   print (len(value))
                 # print("----------------------------------")
                 if (not isPrintData):
-                    print('pint test data')
-                    print('pint test data')
-                    print(data_input)
-                    print(image)
-                    print(image.shape)
+                    print('peint test data')
+                    print('peint test data')
                     print(batch_idx)
                     print ('=======================================')
-                    print(data['images'])
-                    print(data['images'].shape)
                     isPrintData = True
 
                 image_features = clip_model.encode_image(image)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                print(image_features.shape)
+                # print(image_features.shape)
                 # shape_embeddings.append(shape_emb.detach().cpu().numpy())
                 # cond_embeddings.append(image_features.detach().cpu().numpy())
                 #break
@@ -416,29 +415,39 @@ def main():
     args.total_shapes = total_shapes
     logging.info("Train Dataset size: {}".format(total_shapes))
     val_dataloader, total_shapes_val, val_dataset  = get_dataloader(args, split="val")
-    logging.info("Test Dataset size: {}".format(total_shapes_val))
+    logging.info("Val Dataset size: {}".format(total_shapes_val))
     logging.info("#############################")
+    # test_dataloader, total_shapes_test, test_dataset  = get_dataloader(args, split="test")
+    # logging.info("Test Dataset size: {}".format(total_shapes_test))
     
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
     net.load_state_dict(checkpoint['model'])
     net.eval()
-    # TODO: 现在我们只读取train的数据集，所以要把shapenet中每个类别数据集中的三个lst文件，做一下去重后一起放到train.lst中
-    # TODO: 体素数据是能直接放到初始化后的数据中的，现在主要是把图片数据看一下怎么转成那个base64的格式
     logging.info("#############################")
     logging.info("Getting train shape embeddings and condition embedding")
-    train_shape_embeddings, train_cond_embeddings = get_condition_embeddings(args, net, clip_model, train_dataloader, times=args.num_views)
 
     # logging.info("Train Embedding Shape {}, Train Condition Embedding {}".format(train_shape_embeddings.shape, train_cond_embeddings.shape))
     # train_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(train_shape_embeddings), torch.from_numpy(train_cond_embeddings))
     # train_dataloader_new = DataLoader(train_dataset_new, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
-    
-    # logging.info("Getting val shape embeddings and condition embedding")
-    # val_shape_embeddings, val_cond_embeddings = get_condition_embeddings(args, net, clip_model, val_dataloader, times=1)
+
+    train_shape_embeddings, train_cond_embeddings = get_condition_embeddings(args, net, clip_model, train_dataloader, times=args.num_views)
+    print('train embeddings finished')
+
+    val_shape_embeddings, val_cond_embeddings = get_condition_embeddings(args, net, clip_model, val_dataloader, times=1)
+    print('val embeddings finished')
+
+    # test数据集貌似会有奇怪的错误，就不处理了
+    # test_shape_embeddings, test_cond_embeddings = get_condition_embeddings(args, net, clip_model, test_dataloader, times=1)
+    # print('test embeddings finished')
+
+
 
     with open('initial_text_query.json', 'w') as f:
         json.dump(shape_embedding_record, f)
-    
+    print('data process finished')
+    print('data process finished')
+    print('data process finished')
     # logging.info("Val Embedding Shape {}, Val Condition Embedding {}".format(val_shape_embeddings.shape, val_cond_embeddings.shape))
     # val_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(val_shape_embeddings), torch.from_numpy(val_cond_embeddings))
     # val_dataloader_new = DataLoader(val_dataset_new, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False)

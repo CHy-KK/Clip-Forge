@@ -5,3 +5,5 @@ nohup.out
 training_data/*
 all_data/*
 __pycache__ 
+processed_voxel_image/*
+processed_voxel_image/*

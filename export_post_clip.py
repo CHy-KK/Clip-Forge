@@ -5,7 +5,7 @@ import logging
 import csv
 import io
 import base64
-
+import ast
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -14,6 +14,8 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans  
 
 import numpy as np
+import pandas as pd
+import json
 
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -49,6 +51,8 @@ from dataset.binvox_rw import Voxels, read_as_3d_array
 
 app = Flask(__name__)
 CORS(app)
+processed_filepath = './processed_voxel_image'
+# processed_filepath = './processed_voxel_image_simple'
 
 class RegexConverter(BaseConverter):
     def __init__(self, url_map, *args):
@@ -132,28 +136,34 @@ def initialize_overview():
     global shape_embs_cls
     global shape_embs_sim
     global tsne
-    global kmeans
+    # global kmeans
     global shape_embs_position
+    global voxel_name
 
     shape_embs = []
-    with open ('init_data_simple.csv', 'r') as f:
+    with open (processed_filepath + '/init_data_voxel_image.csv', 'r') as f:
+        print('initializing')
+        # reader = pd.read_csv(f, iterator=True)
+        # for chunk in reader:
+        #     rowList = chunk.values.tolist()
+        #     for row in rowList:
+        #         shape_embs.append([row[0], row[1]])
+        #         voxel_name.append(row[1])
+        #         shape_embs_np = np.array(row[2][1:-1].split(', '), ndmin=2).astype(np.float)
+        #         shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
+        #         shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
         reader = csv.reader(f)
-        num_limit = 100
         for row in tqdm(reader):
             # row: [str: textquery, list: embedding]
-            shape_embs.append([row[0]])
-            shape_embs_np = np.array(row[1][1:-1].split(', '), ndmin=2).astype(np.float)
+            shape_embs.append([row[0],row[1]])
+            voxel_name.append(row[1])
+            shape_embs_np = np.array(row[2][1:-1].split(', '), ndmin=2).astype(np.float)
             shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
             shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
-     
-            
-        print (len(shape_embs))
-        print (len(shape_embs_list[0]))
-        print (type(shape_embs_list[0]))
-        print (len(shape_embs_torch))
+    
         shape_embs_position = tsne.fit_transform(shape_embs_list)
         print("tsne finish")
-        kmeans.fit(shape_embs_list)
+        # kmeans.fit(shape_embs_list)
         print("kmeans finish")
         num_figs = 1
         for i in range(13):
@@ -162,33 +172,24 @@ def initialize_overview():
         # testlist = np.array([0,1,2,3,4,5,6])
         # print(np.mean(testlist[np.array([2,3,4])]))
         for i in tqdm(range(len(shape_embs_list))):
-            clusterPredicted = kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]
-            shape_embs[i].append([shape_embs_position[i].tolist(), str(clusterPredicted)])
-            clsList[clusterPredicted].append(i)
-            shape_embs_cls.append(clusterPredicted) 
+            # clusterPredicted = kmeans.predict(shape_embs_list[i].reshape(1, -1))[0]
+            # shape_embs[i].append([shape_embs_position[i].tolist(), str(clusterPredicted)])
+            # clsList[clusterPredicted].append(i)
+            # shape_embs_cls.append(clusterPredicted) 
+            shape_embs[i].append([shape_embs_position[i].tolist()])
             
-            # print(kmeans.predict(shape_embs_list[i].reshape(1, -1)) )
-            
-            # if (i == 0):
-            #     shape = (64, 64, 64)
-            #     p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
-            #     query_points = p.expand(num_figs, *p.size())
-            #     out = net.decoding(shape_embs_torch[0], query_points)
-            #     voxels_out = (out.view(num_figs, 64, 64, 64) > args.threshold).detach().cpu().numpy()
-            #     img = gen_image(voxels_out[0])
-            #     shape_embs[i].append(img)
-        for i in range(len(clsList)):
-            cls_avg_embs.append(np.mean(shape_embs_list[np.array(clsList[i])], axis=0))
+        # for i in range(len(clsList)):
+        #     cls_avg_embs.append(np.mean(shape_embs_list[np.array(clsList[i])], axis=0))
 
-        shape_embs_sim = np.empty((len(shape_embs_list), len(cls_avg_embs)))
-        print('cal cosine sim for embs and cluster centroid')
-        for i in tqdm(range(len(shape_embs_list))):
-            for j in (range(len(cls_avg_embs))):
-                dot = np.dot(shape_embs_list[i], cls_avg_embs[j])
-                v1norm = np.linalg.norm(shape_embs_list[i])
-                v2norm = np.linalg.norm(cls_avg_embs[j])
-                shape_embs_sim[i][j] = dot / (v1norm * v2norm)
-            shape_embs[i].append(shape_embs_sim[i].tolist())
+        # shape_embs_sim = np.empty((len(shape_embs_list), len(cls_avg_embs)))
+        # print('cal cosine sim for embs and cluster centroid')
+        # for i in tqdm(range(len(shape_embs_list))):
+        #     for j in (range(len(cls_avg_embs))):
+        #         dot = np.dot(shape_embs_list[i], cls_avg_embs[j])
+        #         v1norm = np.linalg.norm(shape_embs_list[i])
+        #         v2norm = np.linalg.norm(cls_avg_embs[j])
+        #         shape_embs_sim[i][j] = dot / (v1norm * v2norm)
+        #     shape_embs[i].append(shape_embs_sim[i].tolist())
         
         
 
@@ -376,6 +377,8 @@ def upload_voxel():
 # ind0-3分别代表: 左下, 右下, 左上, 右上
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
 def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
+    global voxel_name
+
     print (idx0, idx1, idx2, idx3)
     idx0 = int(idx0)
     idx1 = int(idx1)
@@ -388,6 +391,12 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     
     if (idx1 == -1):    # 1个embedding无插值
         res_emb = shape_embs_torch[idx0]
+        voxel_out = []
+        vname = voxel_name[idx0]
+        with open(processed_filepath + '/' + vname, 'r', encoding='utf-8') as processed_data:
+            data = json.load(processed_data)
+            voxel_out = data['voxel']
+        return jsonify([voxel_out, res_emb.tolist()])
     elif (idx2 == -1):  # 2个embedding 一次线性插值
         res_emb = torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval)
     elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
@@ -425,6 +434,20 @@ def embedding2voxel(emb):
         voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
         return voxels_out
 
+@app.route('/get_image_list', methods=['POST'])
+def get_image_list():
+    global voxel_name
+    sampleIdxList = request.form.get('sampleList').split(',')
+    sampleIdxList = [int(i) for i in sampleIdxList]
+    image_list = []
+    for idx in sampleIdxList:
+        vname = voxel_name[idx]
+        with open(processed_filepath + '/' + vname, 'r', encoding='utf-8') as processed_data:
+            data = json.load(processed_data)
+            image_list.append(data['image'])
+    return jsonify(image_list)
+
+
 ############################################# Main and Parser stuff #################################################
 
 
@@ -442,6 +465,7 @@ if __name__ == '__main__':
     global shape_embs_position  # 记录每个生成点的二维坐标
     global tsne
     global kmeans
+    global voxel_name
     
 
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
@@ -449,6 +473,7 @@ if __name__ == '__main__':
     cls_avg_embs = []
     shape_embs_cls = []
     shape_embs_position = []
+    voxel_name = []
     tsne = TSNE(n_components=2, random_state=42)
     kmeans = KMeans(n_clusters=13, random_state=42)
     shape_embs_torch = []
