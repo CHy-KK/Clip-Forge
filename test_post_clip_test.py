@@ -418,6 +418,7 @@ def get_local_parser_test(mode="args"):
 def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
     model.eval()
     clip_model.eval()
+    shape_embeddings = []
     resolution = 64
     num_figs = 1
     with torch.no_grad():
@@ -442,8 +443,9 @@ def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
                 #     voxel_num = voxel_num + 1
                     
                 batch_idx = 0
+                voxel_list = data['voxels'].tolist()
                 for emb in shape_emb:
-                    shape_embedding_record[id2text[data['category'][batch_idx]]].append(emb)
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append([emb, voxel_list[batch_idx], data['images'][1][batch_idx]])
                     batch_idx += 1
                 
 id2text = {
@@ -501,6 +503,7 @@ def main():
     # if args.experiment_mode not in ["save_voxel_on_query", "cls_cal_single", "cls_cal_category", "gen_embeddings_on_query"]:
     logging.info("#############################")
     train_dataloader, total_shapes, train_dataset  = get_dataloader(args, split="train")
+    val_dataloader, total_shapes_val, val_dataset  = get_dataloader(args, split="val")
     args.total_shapes = total_shapes
     # logging.info("Train Dataset size: {}".format(total_shapes))
     # val_dataloader, total_shapes_val  = get_dataloader(args, split="val")
@@ -539,7 +542,10 @@ def main():
 
     gen_shape_embeddings(args, net, clip_model, train_dataloader, times=1)
 
-    with open('initial_text_query_simple.json', 'w') as f:
+    gen_shape_embeddings(args, net, clip_model, val_dataloader, times=1)
+
+
+    with open('initial_text_query.json', 'w') as f:
         json.dump(shape_embedding_record, f)
 
     # if args.experiment_mode == "fid_cal":

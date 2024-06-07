@@ -10,8 +10,8 @@ import pandas as pd
 
 # create csv
 data_embedding = []
+# processed_filepath = './processed_voxel_image'
 processed_filepath = './processed_voxel_image'
-# processed_filepath = './processed_voxel_image_simple'
 with open (processed_filepath + '/initial_text_query.json', 'r') as fj:
   init_dict = json.load(fj)
   for key_text, val_emb_list in init_dict.items():
