@@ -424,6 +424,7 @@ def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
     with torch.no_grad():
         for i in range(0, times):
             print('dataloader size = ' + str(len(dataloader)))
+            print('??????????????????????????????????????' + str(len(dataloader)))
             for data in tqdm(dataloader):
               
                 voxel_size = resolution
@@ -441,11 +442,28 @@ def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
                 #     out_file = os.path.join("test_gen/", "testgen_" + str(voxel_num) + ".png")
                 #     voxel_save(voxel_in, None, out_file=out_file)
                 #     voxel_num = voxel_num + 1
+                # image_features
+
                     
                 batch_idx = 0
                 voxel_list = data['voxels'].tolist()
                 for emb in shape_emb:
-                    shape_embedding_record[id2text[data['category'][batch_idx]]].append([emb, voxel_list[batch_idx], data['images'][1][batch_idx]])
+                    print('?????????????????')
+                    print(len(data['images']))
+                    print(len(data['images'][0][batch_idx]))
+                    print(len(data['images'][1][batch_idx]))
+                    print(type(data['images'][0][batch_idx]))
+                    print(type(data['images'][1][batch_idx]))
+                    image_features = []
+                    for i in range(0, 10):
+                        image = data['images'][i][batch_idx].unsqueeze(0).type(torch.FloatTensor).to(args.device)
+                        image_feature = clip_model.encode_image(image)
+                        image_feature = image_feature / image_feature.norm(dim=-1, keepdim=True)
+                        image_features.append(image_feature)
+                    
+                        print(image_feature.size())
+                    avg_feature = torch.mean(torch.stack(image_features), dim=0).detach().cpu().numpy().tolist()
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append([emb, avg_feature, voxel_list[batch_idx], data['images'][-1][batch_idx]])
                     batch_idx += 1
                 
 id2text = {

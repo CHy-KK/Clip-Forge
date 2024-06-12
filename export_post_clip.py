@@ -52,7 +52,8 @@ from dataset.binvox_rw import Voxels, read_as_3d_array
 app = Flask(__name__)
 CORS(app)
 # processed_filepath = './processed_voxel_image'
-processed_filepath = './processed_voxel_image_simple'
+# processed_filepath = './processed_voxel_image_simple'
+processed_filepath = './processed_voxel_image_clip'
 
 
 class RegexConverter(BaseConverter):
@@ -137,10 +138,10 @@ def initialize_overview():
     global shape_embs_cls
     global shape_embs_sim
     global tsne
-    # global kmeans
     global shape_embs_position
     global voxel_name
     global isInitialize
+    global clip_embs_list
 
     shape_embs = []
     if (not isInitialize):
@@ -158,11 +159,15 @@ def initialize_overview():
             reader = csv.reader(f)
             for row in tqdm(reader):
                 # row: [str: textquery, list: embedding]
-                shape_embs.append([row[0],row[1]])
+                shape_embs.append([row[0], row[1]])
                 voxel_name.append(row[1])
                 shape_embs_np = np.array(row[2][1:-1].split(', '), ndmin=2).astype(np.float)
                 shape_embs_list = np.append(shape_embs_list, shape_embs_np, axis=0)
                 shape_embs_torch.append(torch.from_numpy(shape_embs_np).type(torch.FloatTensor).to(args.device))
+                clip_embs_list.append(np.array(row[3][2:-2].split(', '), ndmin=2).astype(np.float).tolist()) 
+                # print(row[3].size)
+                # print(row[3].size)
+                # print(row[3].size)
         
             shape_embs_position = tsne.fit_transform(shape_embs_list)
             print("tsne finish")
@@ -271,6 +276,7 @@ def get_embeddings_by_image():
     
     image_tensor = transform_image(image_data).unsqueeze(0) 
     shape_embs = []
+    clip_feature = []
     clip_model.eval()
     latent_flow_model.eval()
     if (image_tensor != None):
@@ -281,6 +287,7 @@ def get_embeddings_by_image():
             image = image_tensor.type(torch.FloatTensor).to(args.device)
             image_features = clip_model.encode_image(image)
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            clip_feature = image_features.detach().cpu().numpy().tolist()
             ###########
             torch.manual_seed(5)
             mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
@@ -311,13 +318,14 @@ def get_embeddings_by_image():
             # shape_embs = [image_name, new_reduced, voxels_out[0].tolist()]
     else:
         print("no image")
-    return jsonify([shape_embs, voxels_out[0].tolist()])
+    return jsonify([shape_embs, voxels_out[0].tolist(), clip_feature])
  
 @app.route('/get_embeddings_by_text_query', methods=['POST'])
 def get_embeddings_by_text_query():
     text_in = request.form.get('prompt')
     global shape_embs_torch
     shape_embs = []
+    clip_feature = []
     clip_model.eval()
     latent_flow_model.eval()
     if (text_in != None):
@@ -328,6 +336,7 @@ def get_embeddings_by_text_query():
             text = clip.tokenize([text_in]).to(args.device)
             text_features = clip_model.encode_text(text)
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            clip_feature = text_features.detach().cpu().numpy().tolist()
             ###########
             torch.manual_seed(5)
             mean_shape = torch.zeros(1, args.emb_dims).to(args.device) 
@@ -347,7 +356,7 @@ def get_embeddings_by_text_query():
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
             
-            shape_embs = [text_in, voxels_out[0].tolist(), decoder_embs.tolist()]
+            shape_embs = [text_in, voxels_out[0].tolist(), decoder_embs.tolist(), clip_feature]
     else:
         print("no query")
     
@@ -382,6 +391,7 @@ def upload_voxel():
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
 def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     global voxel_name
+    global clip_embs_list
 
     print (idx0, idx1, idx2, idx3)
     idx0 = int(idx0)
@@ -400,7 +410,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
         with open(processed_filepath + '/' + vname, 'r', encoding='utf-8') as processed_data:
             data = json.load(processed_data)
             voxel_out = data['voxel']
-        return jsonify([voxel_out, res_emb.tolist()])
+        return jsonify([voxel_out, res_emb.tolist(), clip_embs_list[idx0]])
     elif (idx2 == -1):  # 2个embedding 一次线性插值
         res_emb = torch.lerp(shape_embs_torch[idx0], shape_embs_torch[idx1], xval)
     elif (idx3 == -1):  # 3个embedding 三角形重心坐标插值
@@ -423,6 +433,20 @@ def get_voxel_by_embedding():
     voxels_out = embedding2voxel(embTensor)
 
     return jsonify(voxels_out[0].tolist())
+
+# TODO: 用image feature生成体素
+@app.route('/get_voxel_by_clip_feature', methods=['POST'])
+def get_voxel_by_clip_feature():
+    emb_list = request.form.get('embedding').strip('[]').split(',')
+
+    emb = [float(num) for num in emb_list]
+    embTensor = torch.tensor([emb]).type(torch.FloatTensor).to(args.device)
+    print(embTensor)
+
+    voxels_out = embedding2voxel(embTensor)
+
+    return jsonify(voxels_out[0].tolist())
+
 
 def embedding2voxel(emb):
     net.eval()
@@ -461,6 +485,7 @@ if __name__ == '__main__':
     global latent_flow_model
     global clip_model
     global shape_embs_torch
+    global clip_embs_list
     global shape_embs_list
     global clsList      # 记录每个分类下数据点在shape_embs_list中的下标（分类 -> 数据
     global cls_avg_embs     # 记录每个分类下的质心数据点
@@ -476,6 +501,7 @@ if __name__ == '__main__':
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
     clsList = []
     cls_avg_embs = []
+    clip_embs_list = []
     shape_embs_cls = []
     shape_embs_position = []
     voxel_name = []

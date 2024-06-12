@@ -189,25 +189,31 @@ class ImagesField(Field):
         '''
         folder = os.path.join(model_path, self.folder_name)
         files = glob.glob(os.path.join(folder, '*.%s' % self.extension))
-        if self.random_view:
-            idx_img = random.randint(0, len(files)-1)
-        else:
-            idx_img = 0
-        filename = files[idx_img]
+        # if self.random_view:
+        #     idx_img = random.randint(0, len(files)-1)
+        # else:
+        #     idx_img = 0
+        
+        imageList = []
+        for idx_img in random.sample(range(0, len(files)), 10):
 
-        image = Image.open(filename).convert('RGB')
+            filename = files[idx_img]
+            image = Image.open(filename).convert('RGB')
+            image = self.transform(image)
+            imageList.append(image)
+
+        image = Image.open(files[0]).convert('RGB')
         buffered = io.BytesIO()
         image.save(buffered, format="PNG")
         img_data = buffered.getvalue()
         base64_encoded = base64.b64encode(img_data)
         base64_string = base64_encoded.decode('utf-8')
-
+        imageList.append(base64_string)
         #print(image.size)
         if self.transform is not None:
             image = self.transform(image)
-        
         data = {
-            None: [image, base64_string]
+            None: imageList
         }
 
         if self.with_camera:
