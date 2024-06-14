@@ -309,7 +309,7 @@ def get_embeddings_by_image():
             #     shape_embs[i][2] = kmeans.predict(shape_embs_list[i])
 
             # gen voxel
-            voxel_size = 64
+            voxel_size = 32
             shape = (voxel_size, voxel_size, voxel_size)
             p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
             query_points = p.expand(num_figs, *p.size())
@@ -328,6 +328,7 @@ def get_embeddings_by_text_query():
     clip_feature = []
     clip_model.eval()
     latent_flow_model.eval()
+    voxel_size = 32
     if (text_in != None):
         with torch.no_grad():
             num_figs = 1
@@ -349,7 +350,6 @@ def get_embeddings_by_text_query():
             # new_reduced = pca.transform(decoder_embs.detach().cpu().numpy()).tolist()
             shape_embs_torch.append(decoder_embs)
 
-            voxel_size = 64
             shape = (voxel_size, voxel_size, voxel_size)
             p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
             query_points = p.expand(num_figs, *p.size())
@@ -398,9 +398,7 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
     idx1 = int(idx1)
     idx2 = int(idx2)
     idx3 = int(idx3)
-    # net.eval()
-    # num_figs = 1
-    # resolution = 64
+    
     res_emb = shape_embs_torch[0]
     
     if (idx1 == -1):    # 1个embedding无插值
@@ -451,9 +449,8 @@ def get_voxel_by_clip_feature():
 def embedding2voxel(emb):
     net.eval()
     num_figs = 1
-    resolution = 64
     with torch.no_grad():
-        voxel_size = resolution
+        voxel_size = 32
         shape = (voxel_size, voxel_size, voxel_size)
         p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
         query_points = p.expand(num_figs, *p.size())
