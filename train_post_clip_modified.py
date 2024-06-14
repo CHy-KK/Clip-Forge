@@ -1,6 +1,7 @@
 import os
 import os.path as osp
 import logging
+import json
 
 import argparse
 from tqdm import tqdm
@@ -25,6 +26,8 @@ from dataset import shapenet_dataset
 from train_autoencoder import experiment_name, parsing
 from networks import autoencoder, latent_flows
 import clip
+
+
 
 ###################################### Experiment Utils########################################################
 
@@ -53,11 +56,6 @@ def get_clip_model(args):
     #train_cond_embs_length = clip_model.train_cond_embs_length
     vocab_size = clip_model.vocab_size
     #cond_emb_dim  = clip_model.embed_dim
-    #print("Model parameters:", f"{np.sum([int(np.prod(p.shape)) for p in clip_model.parameters()]):,}")
-    print("cond_emb_dim:", cond_emb_dim)
-    print("Input resolution:", input_resolution)
-    #print("train_cond_embs length:", train_cond_embs_length)
-    print("Vocab size:", vocab_size)
     args.n_px = input_resolution
     args.cond_emb_dim = cond_emb_dim
     return args, clip_model
@@ -78,7 +76,8 @@ def get_dataloader(args, split="train", dataset_flag=False):
         voxel_fields = shapenet_dataset.VoxelsField("model.binvox")
         
         if split == "train":
-            image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=True, n_px=args.n_px)
+            image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=False, n_px=args.n_px)
+            # 原代码：image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=True, n_px=args.n_px)
         else:
             image_field =  shapenet_dataset.ImagesField("img_choy2016", random_view=False, n_px=args.n_px)
             
@@ -98,7 +97,7 @@ def get_dataloader(args, split="train", dataset_flag=False):
             dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
                      categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
 
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True, collate_fn=my_collate)
+            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=my_collate)
             total_shapes = len(dataset)
         else:
             dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
@@ -106,10 +105,12 @@ def get_dataloader(args, split="train", dataset_flag=False):
             dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=my_collate)
             total_shapes = len(dataset)
 
+        print("dataloarder length = " + str(len(dataloader)))
+
         if dataset_flag == True:  
             return dataloader, total_shapes, dataset
             
-        return dataloader, total_shapes 
+        return dataloader, total_shapes, dataset
     
     else:
         raise ValueError("Dataset name is not defined {}".format(dataset_name))
@@ -118,40 +119,111 @@ def get_dataloader(args, split="train", dataset_flag=False):
 
 ######################################## Pre-compute stuff ########################################
 
+def voxel_save(voxels, text_name, out_file=None, transpose=True, show=False):
+
+    # Use numpy
+    voxels = np.asarray(voxels)
+    # Create plot
+    #fig = plt.figure()
+    fig = plt.figure(figsize=(40,20))
+    
+    ax = fig.add_subplot(111, projection=Axes3D.name)
+    if transpose == True:
+        voxels = voxels.transpose(2, 0, 1)
+    #else:
+        #voxels = voxels.transpose(2, 0, 1)
+        
+
+    ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
+    ax.set_xlabel('Z')
+    ax.set_ylabel('X')
+    ax.set_zlabel('Y')
+    # Hide grid lines
+    plt.grid(False)
+    plt.axis('off')
+    
+    if text_name != None:
+        plt.title(text_name, {'fontsize':30}, y=0.15)
+    #plt.text(15, -0.01, "Correlation Graph between Citation & Favorite Count")
+
+    ax.view_init(elev=30, azim=45)
+
+    if out_file is not None:
+        plt.axis('off')
+        plt.savefig(out_file)
+    if show:
+        plt.show()
+    plt.close(fig)
+
 #### Get the clip embedding and shape embedding. Done to be more efficent 
 def get_condition_embeddings(args, model, clip_model, dataloader, times=5):
     model.eval()
     clip_model.eval()
     shape_embeddings = []
     cond_embeddings = []
+    isPrintData = False
     with torch.no_grad():
         for i in range(0, times):
+            data_counter = 0
             for data in tqdm(dataloader):
+                data_counter += 1
                 pc = data['pc_org'].type(torch.FloatTensor).to(args.device)
                 query_points, occ = data['points'], data['points.occ']
                 data_index =  data['idx'].to(args.device)
-                image = data['images'].type(torch.FloatTensor).to(args.device)
+                # print('****************************************')
+                # print(data['images'][0].shape)
+                # print('****************************************')
+                # print(len(data['images'][1]))
+                # print(data['images'][1][0])
+                image = data['images'][0].type(torch.FloatTensor).to(args.device)
                
                 query_points = query_points.type(torch.FloatTensor).to(args.device)
                 occ = occ.type(torch.FloatTensor).to(args.device)
-
                 if args.input_type == "Voxel":
                     data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 elif args.input_type == "Pointcloud":
                     data_input = data['pc_org'].type(torch.FloatTensor).to(args.device).transpose(-1, 1)
-            
-                shape_emb = model.encoder(data_input)
+                shape_emb = model.encoder(data_input).detach().cpu().numpy().tolist()
+                # print (len(shape_emb))
                 
+                # shape = (64, 64, 64)
+                # p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
+                # query_points = p.expand(1, *p.size())
+                # out = model.decoding(model.encoder(data_input), query_points)
+                # voxels_out = (out.view(1, 64, 64, 64) > args.threshold).detach().cpu().numpy()
+                # voxel_num = 0
+                # for voxel_in in voxels_out:
+                #     out_file = os.path.join("test_gen/", "plane" + "_" + str(voxel_num) + ".png")
+                #     voxel_save(voxel_in, None, out_file=out_file)
+                #     voxel_num = voxel_num + 1
+                # print (shape_emb)
+                batch_idx = 0
+                voxel_list = data['voxels'].tolist()
+
+                for emb in shape_emb:
+                    shape_embedding_record[id2text[data['category'][batch_idx]]].append([emb, voxel_list[batch_idx], data['images'][1][batch_idx]])
+                    batch_idx += 1
+                # print("----------------------------------")
+                # for key, value in shape_embedding_record.items():
+                #   print (len(value))
+                # print("----------------------------------")
+                if (not isPrintData):
+                    print('peint test data')
+                    print('peint test data')
+                    print(batch_idx)
+                    print ('=======================================')
+                    isPrintData = True
+
                 image_features = clip_model.encode_image(image)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                    
-                shape_embeddings.append(shape_emb.detach().cpu().numpy())
-                cond_embeddings.append(image_features.detach().cpu().numpy())
+                # print(image_features.shape)
+                # shape_embeddings.append(shape_emb.detach().cpu().numpy())
+                # cond_embeddings.append(image_features.detach().cpu().numpy())
                 #break
-            logging.info("Number of views done: {}/{}".format(i, times))
+        #     logging.info("Number of views done: {}/{}".format(i, times))
             
-        shape_embeddings = np.concatenate(shape_embeddings) 
-        cond_embeddings = np.concatenate(cond_embeddings) 
+        # shape_embeddings = np.concatenate(shape_embeddings) 
+        # cond_embeddings = np.concatenate(cond_embeddings) 
         return shape_embeddings, cond_embeddings
 
 ######################################## Pre-compute stuff ########################################
@@ -261,9 +333,44 @@ def get_local_parser(mode="args"):
     else:
         return parser
 
-    
+
+id2text = {
+  '04256520': 'sofa',
+  '02691156': 'plane',
+  '03636649': 'lamp',
+  '04401088': 'telephone',
+  '03691459': 'speaker',
+  '03001627': 'chair',
+  '02933112': "cabinet",
+  '04379243': 'table',
+  '03211117': 'display',
+  '02958343': 'car',
+  '02828884': 'bench',
+  '04090263': 'rifle',
+  '04530566': 'vessel'
+}
+
+shape_embedding_record = {
+  'sofa':[],
+  'plane':[],
+  'lamp':[],
+  'telephone':[],
+  'speaker':[],
+  'chair':[],
+  'table':[],
+  'display':[],
+  'car':[],
+  'bench':[],
+  'rifle':[],
+  "cabinet":[],
+  'vessel':[]
+}
 
 def main():
+
+    global id2text
+    global shape_embedding_record
+
     args = get_local_parser()
     exp_name = experiment_name(args)
     exp_name_2 = experiment_name2(args)
@@ -304,70 +411,84 @@ def main():
     args, clip_model = get_clip_model(args)
     
     logging.info("#############################")
-    train_dataloader, total_shapes  = get_dataloader(args, split="train")
+    train_dataloader, total_shapes, train_dataset  = get_dataloader(args, split="train")
     args.total_shapes = total_shapes
     logging.info("Train Dataset size: {}".format(total_shapes))
-    val_dataloader, total_shapes_val  = get_dataloader(args, split="val")
-    logging.info("Test Dataset size: {}".format(total_shapes_val))
+    val_dataloader, total_shapes_val, val_dataset  = get_dataloader(args, split="val")
+    logging.info("Val Dataset size: {}".format(total_shapes_val))
     logging.info("#############################")
-    
-    
+    # test_dataloader, total_shapes_test, test_dataset  = get_dataloader(args, split="test")
+    # logging.info("Test Dataset size: {}".format(total_shapes_test))
     
     net = autoencoder.get_model(args).to(args.device)
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
     net.load_state_dict(checkpoint['model'])
     net.eval()
-    
     logging.info("#############################")
     logging.info("Getting train shape embeddings and condition embedding")
+
+    # logging.info("Train Embedding Shape {}, Train Condition Embedding {}".format(train_shape_embeddings.shape, train_cond_embeddings.shape))
+    # train_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(train_shape_embeddings), torch.from_numpy(train_cond_embeddings))
+    # train_dataloader_new = DataLoader(train_dataset_new, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
+
     train_shape_embeddings, train_cond_embeddings = get_condition_embeddings(args, net, clip_model, train_dataloader, times=args.num_views)
-    logging.info("Train Embedding Shape {}, Train Condition Embedding {}".format(train_shape_embeddings.shape, train_cond_embeddings.shape))
-    train_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(train_shape_embeddings), torch.from_numpy(train_cond_embeddings))
-    train_dataloader_new = DataLoader(train_dataset_new, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
-    
-    logging.info("Getting val shape embeddings and condition embedding")
+    print('train embeddings finished')
+
     val_shape_embeddings, val_cond_embeddings = get_condition_embeddings(args, net, clip_model, val_dataloader, times=1)
-    logging.info("Val Embedding Shape {}, Val Condition Embedding {}".format(val_shape_embeddings.shape, val_cond_embeddings.shape))
-    val_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(val_shape_embeddings), torch.from_numpy(val_cond_embeddings))
-    val_dataloader_new = DataLoader(val_dataset_new, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False)
-    logging.info("#############################")
-    
-    latent_flow_network = latent_flows.get_generator(args.emb_dims, args.cond_emb_dim, device, flow_type=args.flow_type, num_blocks=args.num_blocks, num_hidden=args.num_hidden)
-    
-    if args.train_mode == "test":
-        pass
-    else: 
-        optimizer = torch.optim.Adam(latent_flow_network.parameters(), lr=0.00003)
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, args.num_iterations, 0.000001)
-        start_epoch = 0 
+    print('val embeddings finished')
 
-        if args.latent_load_checkpoint is not None:
-            checkpoint_dir = args.new_checkpoint_dir + "/{}.pt".format(args.latent_load_checkpoint)
-            checkpoint = torch.load(checkpoint_dir, map_location=args.device)
-            latent_flow_network.load_state_dict(checkpoint['model'])
-            start_epoch = checkpoint['current_epoch']
+    # test数据集貌似会有奇怪的错误，就不处理了
+    # test_shape_embeddings, test_cond_embeddings = get_condition_embeddings(args, net, clip_model, test_dataloader, times=1)
+    # print('test embeddings finished')
+
+
+
+    with open('initial_text_query.json', 'w') as f:
+        json.dump(shape_embedding_record, f)
+    print('data process finished')
+    print('data process finished')
+    print('data process finished')
+    # logging.info("Val Embedding Shape {}, Val Condition Embedding {}".format(val_shape_embeddings.shape, val_cond_embeddings.shape))
+    # val_dataset_new = torch.utils.data.TensorDataset(torch.from_numpy(val_shape_embeddings), torch.from_numpy(val_cond_embeddings))
+    # val_dataloader_new = DataLoader(val_dataset_new, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False)
+    # logging.info("#############################")
+    
+    # latent_flow_network = latent_flows.get_generator(args.emb_dims, args.cond_emb_dim, device, flow_type=args.flow_type, num_blocks=args.num_blocks, num_hidden=args.num_hidden)
+    
+    # if args.train_mode == "test":
+    #     pass
+    # else: 
+    #     optimizer = torch.optim.Adam(latent_flow_network.parameters(), lr=0.00003)
+    #     scheduler = lr_scheduler.CosineAnnealingLR(optimizer, args.num_iterations, 0.000001)
+    #     start_epoch = 0 
+
+    #     if args.latent_load_checkpoint is not None:
+    #         checkpoint_dir = args.new_checkpoint_dir + "/{}.pt".format(args.latent_load_checkpoint)
+    #         checkpoint = torch.load(checkpoint_dir, map_location=args.device)
+    #         latent_flow_network.load_state_dict(checkpoint['model'])
+    #         start_epoch = checkpoint['current_epoch']
             
             
-        best_loss = 100000 
-        for epoch in range(start_epoch, args.epochs):
-            logging.info("#############################")
+    #     best_loss = 100000 
+    #     for epoch in range(start_epoch, args.epochs):
+    #         logging.info("#############################")
             
-            if (epoch + 1) % 5 == True:
-                if args.text_query is not None:
-                    generate_on_query_text(args, clip_model, net, latent_flow_network)
+    #         if (epoch + 1) % 5 == True:
+    #             if args.text_query is not None:
+    #                 generate_on_query_text(args, clip_model, net, latent_flow_network)
                 
-            train_one_epoch(args, latent_flow_network, train_dataloader_new, optimizer, epoch)   
-            val_loss = val_one_epoch(args, latent_flow_network, val_dataloader_new,  epoch)
+    #         train_one_epoch(args, latent_flow_network, train_dataloader_new, optimizer, epoch)   
+    #         val_loss = val_one_epoch(args, latent_flow_network, val_dataloader_new,  epoch)
             
-            filename = '{}.pt'.format(args.checkpoint_dir + "/last")
-            logging.info("Saving Model........{}".format(filename))
-            torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))
+    #         filename = '{}.pt'.format(args.checkpoint_dir + "/last")
+    #         logging.info("Saving Model........{}".format(filename))
+    #         torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))
 
-            if best_loss > val_loss:
-                best_loss = val_loss
-                filename = '{}.pt'.format(args.checkpoint_dir + "/best")
-                logging.info("Saving Model........{}".format(filename))
-                torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))    
+    #         if best_loss > val_loss:
+    #             best_loss = val_loss
+    #             filename = '{}.pt'.format(args.checkpoint_dir + "/best")
+    #             logging.info("Saving Model........{}".format(filename))
+    #             torch.save({'model': latent_flow_network.state_dict(), 'args': args, "current_epoch": epoch}, '{}'.format(filename))    
             
 if __name__ == "__main__":
     main()          

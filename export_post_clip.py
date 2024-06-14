@@ -507,6 +507,7 @@ if __name__ == '__main__':
     shape_embs_torch = []
     net = autoencoder.get_model(args).to(args.device)
     isInitialize = False
+    
     checkpoint = torch.load(args.checkpoint_dir_base +"/"+ args.checkpoint +".pt", map_location=args.device)
     net.load_state_dict(checkpoint['model'])
     net.eval()
