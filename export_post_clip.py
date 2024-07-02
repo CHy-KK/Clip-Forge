@@ -125,6 +125,40 @@ def gen_image(voxels):
     stream.close()
     return encoded_image
 
+# 计算Ward方差最小化距离的平方
+def ward_dis_square(dandroList, ele1, ele2):
+    # 先判断是否为叶节点
+    if (not isinstance(ele1, np.ndarray) and dandroList[ele1][1] == -1):
+        ele1 = dandroList[ele1][-1]
+    if (not isinstance(ele2, np.ndarray) and dandroList[ele2][1] == -1):
+        ele2 = dandroList[ele2][-1]
+
+    if isinstance(ele2, np.ndarray):
+        # ele1和ele2都为ndarray
+        if isinstance(ele1, np.ndarray):
+            return np.sum((ele1 - ele2) ** 2)
+        # ele2是ndarray，ele1为簇序号
+        tmp = ele1
+        ele1 = ele2
+        ele2 = tmp
+    if isinstance(ele1, np.ndarray) and not isinstance(ele2, np.ndarray):
+        # ele1为ndarray, ele2为簇序号
+        T = dandroList[ele2][2] + 1
+        tl = dandroList[dandroList[ele2][0]][2]
+        sl = dandroList[dandroList[ele2][1]][2]
+        return ((tl + 1) * ward_dis_square(dandroList, ele1, dandroList[ele2][0]) 
+                + (sl + 1) * ward_dis_square(dandroList, ele1, dandroList[ele2][1])
+                - 1 * ward_dis_square(dandroList, dandroList[ele2][0], dandroList[ele2][1])) / T
+
+    # ele1和ele2都为簇序号
+    T = dandroList[ele1][2] + dandroList[ele2][2] 
+    tl = dandroList[dandroList[ele2][0]][2]
+    sl = dandroList[dandroList[ele2][1]][2]
+    vl = dandroList[ele1][2]
+    return ((tl + vl) * ward_dis_square(dandroList, ele1, dandroList[ele2][0])
+            + (sl + vl) * ward_dis_square(dandroList, ele1, dandroList[ele2][1])
+            - vl * ward_dis_square(dandroList, dandroList[ele2][0], dandroList[ele2][1])) / T
+
 @app.route('/')
 def index():
   return render_template('index2.html')
