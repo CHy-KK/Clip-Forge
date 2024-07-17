@@ -405,7 +405,7 @@ def upload_voxel():
     new_voxel_grid = np.zeros((32, 32, 32))
     for ele in new_voxel_data_str:
         pos = tuple(map(float, ele.split(',')))
-        new_voxel_grid[int((pos[0] + 32) * 0.5), int((pos[1] + 32) * 0.5), int((pos[2] + 32) * 0.5)] = 1
+        new_voxel_grid[int(pos[0]), int(pos[1]), int(pos[2])] = 1
         new_voxel_data.append(pos)
     # new_voxel_grid = 
     # for x in range(0, 63, 2):
