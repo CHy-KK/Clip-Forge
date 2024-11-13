@@ -16,17 +16,25 @@ data_embedding = []
 # processed_filepath = './processed_voxel_image'
 processed_filepath = './processed_voxel_image_clip'
 # processed_filepath = './processed_voxel_image_simple'
+# processed_filepath = './processed_voxel_image' # 输出到random1000文件夹
 
 tsne_voxel = TSNE(n_components=2, random_state=42)
 tsne_clip = TSNE(n_components=2, random_state=42)
 voxel_embs = np.empty(shape=[0,128],dtype=float)
 clip_embs = np.empty(shape=[0,512],dtype=float)
 label = []
+numberRecord = {}
 with open (processed_filepath + '/initial_text_query.json', 'r') as fj:
   init_dict = json.load(fj)
   for key_text, val_emb_list in init_dict.items():
+    classLen = len(val_emb_list)
+    random_idx = []
+    if (classLen > 1000):
+        random_idx = random.sample(range(0, classLen), 1000)
+    idx = 0
+    if (classLen > 1000 and idx not in random_idx):
+        continue
     print(key_text)
-    print(len(val_emb_list))
     for i in range(len(val_emb_list)):
       # 类别，命名，voxel embedding，clip image embedding
       data_embedding.append([key_text, key_text + ' ' + str(i), val_emb_list[i][0], val_emb_list[i][1]])
@@ -35,9 +43,9 @@ with open (processed_filepath + '/initial_text_query.json', 'r') as fj:
       voxel_embs = np.append(voxel_embs, np.array(val_emb_list[i][0], ndmin=2).astype(np.float), axis=0)
       clip_embs = np.append(clip_embs, np.array(val_emb_list[i][1], ndmin=2).astype(np.float), axis=0)
       label.append(key_text)
-    #   with open(processed_filepath + '/' + key_text + ' ' + str(i), 'w', encoding='utf-8') as processed_data:
-    #     # 体素，图片
-    #     processed_data.write(json.dumps({'voxel': val_emb_list[i][2], 'image': val_emb_list[i][3]}))
+      with open(processed_filepath + '/' + key_text + ' ' + str(i), 'w', encoding='utf-8') as processed_data:
+        # 体素，图片
+        processed_data.write(json.dumps({'voxel': val_emb_list[i][2], 'image': val_emb_list[i][3]}))
 
 print (clip_embs)
 shape_embs_position = tsne_voxel.fit_transform(voxel_embs)
@@ -51,11 +59,11 @@ for i in range(len(data_embedding)):
     data_embedding[i].append(shape_embs_position[i].tolist())
     data_embedding[i].append(clip_embs_position[i].tolist())
 
-cluster_mat = linkage(voxel_embs, method='ward', metric='euclidean')
-fig = plt.figure(figsize=(8,5))
-dn = dendrogram(cluster_mat, labels=label)
-plt.savefig(processed_filepath + '/dendrogram_graph')
-print (cluster_mat)
+# cluster_mat = linkage(voxel_embs, method='ward', metric='euclidean')
+# fig = plt.figure(figsize=(8,5))
+# dn = dendrogram(cluster_mat, labels=label)
+# plt.savefig(processed_filepath + '/dendrogram_graph')
+# print (cluster_mat)
 
 # 储存层次聚类的结果
 # 0: 簇元素1下标
@@ -100,21 +108,21 @@ def ward_dis_square(dandroList, ele1, ele2):
             - vl * ward_dis_square(dandroList, dandroList[ele2][0], dandroList[ele2][1])) / T
 
 
-for i in range(len(voxel_embs)):
-    dandrogramRecord.append([i, -1, 1, voxel_embs[i]])
+# for i in range(len(voxel_embs)):
+#     dandrogramRecord.append([i, -1, 1, voxel_embs[i]])
 
-for i in range(len(cluster_mat)):
-    idx0 = int(cluster_mat[i][0])
-    idx1 = int(cluster_mat[i][1])
-    cluster_eles = int(cluster_mat[i][3])
-    cluster_centroid0 = (dandrogramRecord[idx0][3] * dandrogramRecord[idx0][-1] + dandrogramRecord[idx1][3] * dandrogramRecord[idx1][-1]) / cluster_eles
-    # dis = np.linalg.norm(dandrogramRecord[idx0][-1] - dandrogramRecord[idx1][-1])
-    # if (round(np.sqrt(ward_dis_square(dandrogramRecord, idx0, idx1)), 5) != round(cluster_mat[i][2], 5)):
-    #     print(np.sqrt(ward_dis_square(dandrogramRecord, idx0, idx1)), cluster_mat[i][2])
-    dandrogramRecord.append([idx0, idx1, cluster_eles, cluster_centroid0])
+# for i in range(len(cluster_mat)):
+#     idx0 = int(cluster_mat[i][0])
+#     idx1 = int(cluster_mat[i][1])
+#     cluster_eles = int(cluster_mat[i][3])
+#     cluster_centroid0 = (dandrogramRecord[idx0][3] * dandrogramRecord[idx0][-1] + dandrogramRecord[idx1][3] * dandrogramRecord[idx1][-1]) / cluster_eles
+#     # dis = np.linalg.norm(dandrogramRecord[idx0][-1] - dandrogramRecord[idx1][-1])
+#     # if (round(np.sqrt(ward_dis_square(dandrogramRecord, idx0, idx1)), 5) != round(cluster_mat[i][2], 5)):
+#     #     print(np.sqrt(ward_dis_square(dandrogramRecord, idx0, idx1)), cluster_mat[i][2])
+#     dandrogramRecord.append([idx0, idx1, cluster_eles, cluster_centroid0])
 
 
-with open(processed_filepath + '/init_data_voxel_image_tsne.csv', 'w', newline='') as fc:
+with open(processed_filepath + '_random1000' + '/init_data_voxel_image_tsne.csv', 'w', newline='') as fc:
   writer = csv.writer(fc)
   writer.writerows(data_embedding)
 

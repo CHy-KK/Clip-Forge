@@ -1,7 +1,7 @@
-2024-06-12 06:48:36,489 - INFO - #############################
-2024-06-12 06:48:36,494 - INFO - #############################
-2024-06-12 06:48:36,495 - INFO - #############################
-2024-06-12 06:48:39,916 - INFO - Loaded the autoencoder: ./exps/models/autoencoder/best_iou.pt
-2024-06-12 06:48:44,614 - INFO - Loaded the nf model: ./exps/models/prior/best.pt
-2024-06-12 06:48:44,662 - INFO - #############################
-2024-06-12 06:48:44,662 - INFO - Conducting the experiment save_voxel_on_query
+2024-11-13 08:44:54,741 - INFO - #############################
+2024-11-13 08:44:54,746 - INFO - #############################
+2024-11-13 08:44:54,746 - INFO - #############################
+2024-11-13 08:44:58,086 - INFO - Loaded the autoencoder: ./exps/models/autoencoder/best_iou.pt
+2024-11-13 08:45:02,660 - INFO - Loaded the nf model: ./exps/models/prior/best.pt
+2024-11-13 08:45:02,705 - INFO - #############################
+2024-11-13 08:45:02,705 - INFO - Conducting the experiment save_voxel_on_query

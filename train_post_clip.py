@@ -94,17 +94,17 @@ def get_dataloader(args, split="train", dataset_flag=False):
             batch =  list(filter(lambda x : x is not None, batch))
             return torch.utils.data.dataloader.default_collate(batch)
 
-        if split == "train":
-            dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
-                     categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
+        # if split == "train":
+        #     dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
+        #              categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
 
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True, collate_fn=my_collate)
-            total_shapes = len(dataset)
-        else:
-            dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
-                     categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
-            dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=my_collate)
-            total_shapes = len(dataset)
+        #     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True, collate_fn=my_collate)
+        #     total_shapes = len(dataset)
+        # else:
+        dataset = shapenet_dataset.Shapes3dDataset(args.dataset_path, fields, split=split,
+                    categories=args.categories, no_except=True, transform=None, num_points=args.num_points)
+        dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=my_collate)
+        total_shapes = len(dataset)
 
         if dataset_flag == True:  
             return dataloader, total_shapes, dataset

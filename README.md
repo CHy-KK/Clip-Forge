@@ -99,6 +99,14 @@ To get the optimal results use different threshold values as controlled by the a
 - DreamFields (https://arxiv.org/pdf/2112.01455.pdf)
 - https://arxiv.org/pdf/2203.13333.pdf
 
+初始化流程：
+python test_post_clip_test.py --checkpoint_dir_base "./exps/models/autoencoder" \
+ --checkpoint best_iou --checkpoint_nf best --experiment_mode save_voxel_on_query \
+ --checkpoint_dir_prior "./exps/models/prior" --text_query "a f22" "a car" --threshold 0.1 \
+ --output_dir "./outputs/f22_car" --dataset_path training_data
+把datasetpath换成对应的Shapenet数据集
+
+然后用initial_data_processor
 
 
 

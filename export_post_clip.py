@@ -6,6 +6,7 @@ import csv
 import io
 import base64
 import ast
+import heapq
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -51,9 +52,9 @@ from dataset.binvox_rw import Voxels, read_as_3d_array
 
 app = Flask(__name__)
 CORS(app)
-# processed_filepath = './processed_voxel_image'
+processed_filepath = './processed_voxel_image'
 # processed_filepath = './processed_voxel_image_simple'
-processed_filepath = './processed_voxel_image_clip'
+# processed_filepath = './processed_voxel_image_clip'
 
 
 class RegexConverter(BaseConverter):
@@ -316,7 +317,7 @@ def get_embeddings_by_image():
     if (image_tensor != None):
         with torch.no_grad():
             num_figs = 1
-            shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+            # shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
             ##########
             image = image_tensor.type(torch.FloatTensor).to(args.device)
             image_features = clip_model.encode_image(image)
@@ -358,6 +359,7 @@ def get_embeddings_by_image():
 def get_embeddings_by_text_query():
     text_in = request.form.get('prompt')
     global shape_embs_torch
+    global shape_embs_list
     shape_embs = []
     clip_feature = []
     clip_model.eval()
@@ -366,7 +368,7 @@ def get_embeddings_by_text_query():
     if (text_in != None):
         with torch.no_grad():
             num_figs = 1
-            shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
+            # shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
             ##########
             text = clip.tokenize([text_in]).to(args.device)
             text_features = clip_model.encode_text(text)
@@ -389,12 +391,32 @@ def get_embeddings_by_text_query():
             query_points = p.expand(num_figs, *p.size())
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
+            ksim = get_k_similar(decoder_embs.detach().cpu().numpy())
+            # print (shape_embs_list.shape)
+            # shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
+            # print (shape_embs_list.shape)
             
             shape_embs = [text_in, voxels_out[0].tolist(), decoder_embs.tolist(), clip_feature]
     else:
         print("no query")
     
     return jsonify(shape_embs)
+
+def cosine_similarity(v1, v2):
+    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+def get_k_similar(curemb):
+    global shape_embs_list
+    k = 16
+    similarities = [(-cosine_similarity(curemb, v), i) for i, v in enumerate(shape_embs_list)]  # 使用负值来创建最大堆
+    heapq.heapify(similarities)  # 转换为最大堆
+    closest_vectors_indices = [heapq.heappop(similarities)[1] for _ in range(k)]
+    closest_vectors = [shape_embs_list[i] for i in closest_vectors_indices]
+
+    # 打印结果
+    # print("最相似的k个向量是：", closest_vectors)
+    print('下标：', closest_vectors_indices)
+    print (similarities)
 
 @app.route('/upload_voxel', methods=['POST'])
 def upload_voxel():
