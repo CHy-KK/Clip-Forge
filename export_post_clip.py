@@ -10,6 +10,7 @@ import heapq
 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, confusion_matrix
+from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.decomposition import PCA 
 from sklearn.manifold import TSNE  
 from sklearn.cluster import KMeans  
@@ -52,9 +53,10 @@ from dataset.binvox_rw import Voxels, read_as_3d_array
 
 app = Flask(__name__)
 CORS(app)
-processed_filepath = './processed_voxel_image'
+# processed_filepath = './processed_voxel_image'
 # processed_filepath = './processed_voxel_image_simple'
 # processed_filepath = './processed_voxel_image_clip'
+processed_filepath = './processed_voxel_image_random200'
 
 
 class RegexConverter(BaseConverter):
@@ -360,6 +362,7 @@ def get_embeddings_by_text_query():
     text_in = request.form.get('prompt')
     global shape_embs_torch
     global shape_embs_list
+    global voxel_name
     shape_embs = []
     clip_feature = []
     clip_model.eval()
@@ -391,12 +394,27 @@ def get_embeddings_by_text_query():
             query_points = p.expand(num_figs, *p.size())
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
-            ksim = get_k_similar(decoder_embs.detach().cpu().numpy())
+            ksim, tsnepos = get_k_similar(decoder_embs.detach().cpu().numpy())
+            simInfo = []
+            
+            for cluster, cpos in zip(ksim, tsnepos):
+                simclu = []
+                for cidx, tpos in zip(cluster, cpos):
+                    vname = voxel_name[cidx]
+                    res_emb = shape_embs_torch[cidx]
+   
+                    with open(processed_filepath + '/' + vname, 'r', encoding='utf-8') as processed_data:
+                        data = json.load(processed_data)
+                        encode_image = data['image']
+
+                        simclu.append([cidx, tpos.tolist(), encode_image])
+                        
+                simInfo.append(simclu)
             # print (shape_embs_list.shape)
             # shape_embs_list = np.append(shape_embs_list, decoder_embs.detach().cpu().numpy(), axis=0)
             # print (shape_embs_list.shape)
-            
-            shape_embs = [text_in, voxels_out[0].tolist(), decoder_embs.tolist(), clip_feature]
+            # print(simInfo)
+            shape_embs = [text_in, voxels_out[0].tolist(), decoder_embs.tolist(), clip_feature, simInfo]
     else:
         print("no query")
     
@@ -404,6 +422,19 @@ def get_embeddings_by_text_query():
 
 def cosine_similarity(v1, v2):
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+def getChildren(sim_mat, root):
+    nodeList = [int(root)]
+    res = []
+    while len(nodeList) > 0:
+        id = nodeList.pop()
+        if (id > 15):
+            nodeList.append(int(sim_mat[id - 16][0]))
+            nodeList.append(int(sim_mat[id - 16][1]))
+        else:
+            res.append(id)
+    return res
+
 
 def get_k_similar(curemb):
     global shape_embs_list
@@ -415,8 +446,53 @@ def get_k_similar(curemb):
 
     # 打印结果
     # print("最相似的k个向量是：", closest_vectors)
-    print('下标：', closest_vectors_indices)
-    print (similarities)
+    tsne_sim = TSNE(n_components=2, random_state=42)
+    sim_pos = tsne_sim.fit_transform(np.array(closest_vectors))
+
+
+
+    sim_mat = linkage(sim_pos, method='ward', metric='euclidean')
+    fig = plt.figure(figsize=(8,5))
+    dn = dendrogram(sim_mat)
+    plt.savefig(processed_filepath + '/dendrogram_graph')
+
+    clusters = []
+    if (int(sim_mat[-1][0]) > 15):
+        clusters.append(getChildren(sim_mat, sim_mat[int(sim_mat[-1][0]) - 16][0]))
+        clusters.append(getChildren(sim_mat, sim_mat[int(sim_mat[-1][0]) - 16][1]))
+    else:
+        clusters.append(getChildren(sim_mat, int(sim_mat[-1][0])))
+     
+
+    if (int(sim_mat[-1][1]) > 15):
+        clusters.append(getChildren(sim_mat, sim_mat[int(sim_mat[-1][1]) - 16][0]))
+        clusters.append(getChildren(sim_mat, sim_mat[int(sim_mat[-1][1]) - 16][1]))
+    else:
+        clusters.append(getChildren(sim_mat, int(sim_mat[-1][1])))
+
+    # 把tsnepos归一到0-1
+    min_x = np.min(sim_pos[:, 0])
+    max_x = np.max(sim_pos[:, 0])
+    min_y = np.min(sim_pos[:, 1])
+    max_y = np.max(sim_pos[:, 1])
+    normalized_coords = np.zeros_like(sim_pos)
+    normalized_coords[:, 0] = (sim_pos[:, 0] - min_x) / (max_x - min_x)
+    normalized_coords[:, 1] = (sim_pos[:, 1] - min_y) / (max_y - min_y)
+
+    res = []
+    tsnepos = []
+    for c in clusters:
+        res.append([closest_vectors_indices[idx] for idx in c])
+        npos = [normalized_coords[idx] for idx in c]
+        cpos = [npos[0]]
+        for p in npos[1:]:
+            cpos.append(npos[0] + 0.1 * (p - npos[0]) / np.linalg.norm(p - npos[0]))
+
+        tsnepos.append(cpos)
+    print (res)
+    return res, tsnepos
+
+    
 
 @app.route('/upload_voxel', methods=['POST'])
 def upload_voxel():

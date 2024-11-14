@@ -291,13 +291,13 @@ def save_voxel_images(net, latent_flow_model, clip_model, args, total_text_query
             noise = torch.cat([mean_shape, noise], dim=0)
             decoder_embs = latent_flow_model.sample(num_figs, noise=noise, cond_inputs=text_features.repeat(num_figs,1))
 
-            print(query_points.shape)
+            # print(query_points.shape)
             out = net.decoding(decoder_embs, query_points)
             voxels_out = (out.view(num_figs, voxel_size, voxel_size, voxel_size) > args.threshold).detach().cpu().numpy()
             
             voxel_num = 0
-            for voxel_in in voxels_out:
-                print(type(voxel_in))
+            # for voxel_in in voxels_out:
+                # print(type(voxel_in))
                 # print(voxel_in.size)
                 # print(np.size(voxel_in,0))
                 # print(np.size(voxel_in,1))
@@ -425,13 +425,15 @@ def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
         for i in range(0, times):
             print('dataloader size = ' + str(len(dataloader)))
             # print('??????????????????????????????????????' + str(len(dataloader)))
+            idx = 0
             for data in tqdm(dataloader):
-                
+                print (idx)
+                idx += 1
                 voxel_size = resolution
                 shape = (voxel_size, voxel_size, voxel_size)
                 p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
                 query_points = p.expand(3, *p.size())
-              
+                
                 data_input = data['voxels'].type(torch.FloatTensor).to(args.device)
                 shape_torch = model.encoder(data_input)
                 shape_emb = shape_torch.detach().cpu().numpy().tolist()
@@ -454,6 +456,8 @@ def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
                     # print(len(data['images'][1][batch_idx]))
                     # print(type(data['images'][0][batch_idx]))
                     # print(type(data['images'][1][batch_idx]))
+                    if (id2Number[data['category'][batch_idx]] >= 100):
+                        continue
                     image_features = []
                     for i in range(0, 10):
                         image = data['images'][i][batch_idx].unsqueeze(0).type(torch.FloatTensor).to(args.device)
@@ -463,7 +467,9 @@ def gen_shape_embeddings(args, model, clip_model, dataloader, times=5):
                     
                     avg_feature = torch.mean(torch.stack(image_features), dim=0).detach().cpu().numpy().tolist()
                     shape_embedding_record[id2text[data['category'][batch_idx]]].append([emb, avg_feature, voxel_list[batch_idx], data['images'][-1][batch_idx]])
+                    id2Number[data['category'][batch_idx]] += 1
                     batch_idx += 1
+                # print (batch_idx)
                 
 id2text = {
   '04256520': 'sofa',
@@ -495,6 +501,22 @@ shape_embedding_record = {
   'rifle':[],
   "cabinet":[],
   'vessel':[]
+}
+
+id2Number = {
+  '04256520': 0,
+  '02691156': 0,
+  '03636649': 0,
+  '04401088': 0,
+  '03001627': 0,
+  '03691459': 0,
+  '02933112': 0,
+  '04379243': 0,
+  '03211117': 0,
+  '02958343': 0,
+  '02828884': 0,
+  '04090263': 0,
+  '04530566': 0
 }
 
 def main():

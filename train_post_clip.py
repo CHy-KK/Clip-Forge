@@ -54,10 +54,9 @@ def get_clip_model(args):
     vocab_size = clip_model.vocab_size
     #cond_emb_dim  = clip_model.embed_dim
     #print("Model parameters:", f"{np.sum([int(np.prod(p.shape)) for p in clip_model.parameters()]):,}")
-    print("cond_emb_dim:", cond_emb_dim)
-    print("Input resolution:", input_resolution)
+
     #print("train_cond_embs length:", train_cond_embs_length)
-    print("Vocab size:", vocab_size)
+
     args.n_px = input_resolution
     args.cond_emb_dim = cond_emb_dim
     return args, clip_model

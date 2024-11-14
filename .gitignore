@@ -8,3 +8,4 @@ __pycache__
 processed_voxel_image/*
 processed_voxel_image/*
 train_plane/*
+processed_voxel_image_random200/*

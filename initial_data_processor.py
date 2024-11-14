@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 # create csv
 data_embedding = []
 # processed_filepath = './processed_voxel_image'
-processed_filepath = './processed_voxel_image_clip'
+# processed_filepath = './processed_voxel_image_clip'
+processed_filepath = './processed_voxel_image_random200'
 # processed_filepath = './processed_voxel_image_simple'
 # processed_filepath = './processed_voxel_image' # 输出到random1000文件夹
 
@@ -34,12 +35,10 @@ with open (processed_filepath + '/initial_text_query.json', 'r') as fj:
     idx = 0
     if (classLen > 1000 and idx not in random_idx):
         continue
-    print(key_text)
+    print(key_text + str(classLen))
     for i in range(len(val_emb_list)):
       # 类别，命名，voxel embedding，clip image embedding
       data_embedding.append([key_text, key_text + ' ' + str(i), val_emb_list[i][0], val_emb_list[i][1]])
-      print (len(val_emb_list[i][0]))
-      print (len(val_emb_list[i][1]))
       voxel_embs = np.append(voxel_embs, np.array(val_emb_list[i][0], ndmin=2).astype(np.float), axis=0)
       clip_embs = np.append(clip_embs, np.array(val_emb_list[i][1], ndmin=2).astype(np.float), axis=0)
       label.append(key_text)
@@ -122,10 +121,10 @@ def ward_dis_square(dandroList, ele1, ele2):
 #     dandrogramRecord.append([idx0, idx1, cluster_eles, cluster_centroid0])
 
 
-with open(processed_filepath + '_random1000' + '/init_data_voxel_image_tsne.csv', 'w', newline='') as fc:
+with open(processed_filepath + '/init_data_voxel_image_tsne.csv', 'w', newline='') as fc:
   writer = csv.writer(fc)
   writer.writerows(data_embedding)
-
+  
 
 
 
