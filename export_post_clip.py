@@ -407,7 +407,7 @@ def get_embeddings_by_text_query():
                         data = json.load(processed_data)
                         encode_image = data['image']
 
-                        simclu.append([cidx, tpos.tolist(), encode_image])
+                        simclu.append([cidx, tpos.tolist(), encode_image, vname])
                         
                 simInfo.append(simclu)
             # print (shape_embs_list.shape)
@@ -451,7 +451,7 @@ def get_k_similar(curemb):
 
 
 
-    sim_mat = linkage(sim_pos, method='ward', metric='euclidean')
+    sim_mat = linkage(np.array(closest_vectors), method='ward', metric='euclidean')
     fig = plt.figure(figsize=(8,5))
     dn = dendrogram(sim_mat)
     plt.savefig(processed_filepath + '/dendrogram_graph')
