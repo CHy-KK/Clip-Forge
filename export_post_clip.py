@@ -367,7 +367,7 @@ def get_embeddings_by_text_query():
     clip_feature = []
     clip_model.eval()
     latent_flow_model.eval()
-    voxel_size = 32
+    voxel_size = int(request.form.get('dim'))
     if (text_in != None):
         with torch.no_grad():
             num_figs = 1
@@ -496,28 +496,28 @@ def get_k_similar(curemb):
 
 @app.route('/upload_voxel', methods=['POST'])
 def upload_voxel():
-    new_voxel_data_str = request.form.get('voxel').strip('()').split('),(')
-    # print(new_voxel_data_str)
-    new_voxel_data = []
+    # new_voxel_data_str = request.form.get('voxel').strip('()').split('),(')
+    # # print(new_voxel_data_str)
+    # new_voxel_data = []
 
-    new_voxel_grid = np.zeros((32, 32, 32))
-    for ele in new_voxel_data_str:
-        pos = tuple(map(float, ele.split(',')))
-        new_voxel_grid[int(pos[0]), int(pos[1]), int(pos[2])] = 1
-        new_voxel_data.append(pos)
-    # new_voxel_grid = 
-    # for x in range(0, 63, 2):
-    #     for y in range(0, 63, 2):
-    #         for z in range(0, 63, 2):
+    # new_voxel_grid = np.zeros((32, 32, 32))
+    # for ele in new_voxel_data_str:
+    #     pos = tuple(map(float, ele.split(',')))
+    #     new_voxel_grid[int(pos[0]), int(pos[1]), int(pos[2])] = 1
+    #     new_voxel_data.append(pos)
+    # # new_voxel_grid = 
+    # # for x in range(0, 63, 2):
+    # #     for y in range(0, 63, 2):
+    # #         for z in range(0, 63, 2):
 
 
 
-    # print(new_voxel_data)
-    #TODO 用shapenet_dataset.py里的VoxelsField尝试读一下model.binvox文件看看读出来到底是啥效果
-    new_voxel_grid = torch.Tensor([new_voxel_grid])
-    new_voxel_emb = net.encoder(new_voxel_grid.type(torch.FloatTensor).to(args.device)).detach().cpu().numpy().tolist()
+    # # print(new_voxel_data)
+    # #TODO 用shapenet_dataset.py里的VoxelsField尝试读一下model.binvox文件看看读出来到底是啥效果
+    # new_voxel_grid = torch.Tensor([new_voxel_grid])
+    # new_voxel_emb = net.encoder(new_voxel_grid.type(torch.FloatTensor).to(args.device)).detach().cpu().numpy().tolist()
   
-    return jsonify(new_voxel_emb)
+    return jsonify('res')
 
 # ind0-3分别代表: 左下, 右下, 左上, 右上
 @app.route('/get_voxel/<int:idx0>-<re("-?[0-9]+"):idx1>-<re("-?[0-9]+"):idx2>-<re("-?[0-9]+"):idx3>/<float:xval>-<float:yval>', methods=['GET', 'POST'])
@@ -555,12 +555,13 @@ def get_voxel_interpolation(idx0, idx1, idx2, idx3, xval, yval):
 @app.route('/get_voxel_by_embedding', methods=['POST'])
 def get_voxel_by_embedding():
     emb_list = request.form.get('embedding').strip('[]').split(',')
+    dim = int(request.form.get('dim'))
 
     emb = [float(num) for num in emb_list]
     embTensor = torch.tensor([emb]).type(torch.FloatTensor).to(args.device)
     print(embTensor)
 
-    voxels_out = embedding2voxel(embTensor)
+    voxels_out = embedding2voxel(embTensor, dim)
 
     return jsonify(voxels_out[0].tolist())
 
@@ -573,16 +574,16 @@ def get_voxel_by_clip_feature():
     embTensor = torch.tensor([emb]).type(torch.FloatTensor).to(args.device)
     print(embTensor)
 
-    voxels_out = embedding2voxel(embTensor)
+    voxels_out = embedding2voxel(embTensor, 32)
 
     return jsonify(voxels_out[0].tolist())
 
 
-def embedding2voxel(emb):
+def embedding2voxel(emb, dim):
     net.eval()
     num_figs = 1
     with torch.no_grad():
-        voxel_size = 32
+        voxel_size = dim
         shape = (voxel_size, voxel_size, voxel_size)
         p = visualization.make_3d_grid([-0.5] * 3, [+0.5] * 3, shape).type(torch.FloatTensor).to(args.device)
         query_points = p.expand(num_figs, *p.size())
@@ -625,7 +626,7 @@ if __name__ == '__main__':
     global kmeans
     global voxel_name
     global isInitialize
-    
+    print (args)
 
     shape_embs_list = np.empty(shape=[0,args.emb_dims],dtype=float)
     clsList = []
@@ -658,3 +659,34 @@ if __name__ == '__main__':
     
     app.debug = True
     app.run()
+
+
+
+
+
+
+# Namespace(
+#     batch_size=32, categories=None, checkpoint='best_iou', checkpoint_dir_base='./exps/models/autoencoder', 
+#     checkpoint_dir_prior='./exps/models/prior', checkpoint_nf='best', classifier_checkpoint='./exps/classifier/checkpoints/best.pt', 
+#     clip_model_type='B-32', dataset_name='Shapenet', dataset_path=None, decoder_type='Occ_Simple_Decoder', 
+#     device='cuda:0', emb_dims=128, encoder_type='Voxel_Encoder_BN', epochs=300, experiment_every=5, 
+#     experiment_mode='save_voxel_on_query', experiment_type='max', flow_type='realnvp_half', gpu='0', 
+#     images_type=None, input_type='Voxel', last_feature_transform='add_noise', latent_load_checkpoint=None, 
+#     log_level='info', lr=None, n_px=224, noise='add', num_blocks=5, num_hidden=1024, num_iterations=300000, 
+#     num_points=2025, num_sdf_points=5000, num_views=5, num_workers=4, optimizer='Adam', output_type='Implicit', 
+#     pc_dims=1024, post_dataset=None, prefix='a', print_every=50, reconstruct_loss_type='sum', sampling_type=None, 
+#     save_every=50, seed=1, seed_nf=1, test_batch_size=32, test_num_sdf_points=30000, text_query=None, threshold=0.1, 
+#     train_mode='train', use_timestamp=False, validation_every=5000, visualization_every=10)
+
+# Namespace(
+#     batch_size=32, categories=None, checkpoint='best_iou', checkpoint_dir_base='./exps/models/autoencoder',
+#     checkpoint_dir_prior='./exps/models/prior', checkpoint_nf='best', classifier_checkpoint='./exps/classifier/checkpoints/best.pt',
+#     clip_model_type='B-32', ??cond_emb_dim=512??, dataset_name='Shapenet', dataset_path=None, decoder_type='Occ_Simple_Decoder', 
+#     device='cuda:0', emb_dims=128, encoder_type='Voxel_Encoder_BN', epochs=300, experiment_every=5, 
+#     experiment_mode='save_voxel_on_query', experiment_type='max', flow_type='realnvp_half', gpu='0', 
+#     images_type=None, input_type='Voxel', last_feature_transform='add_noise', latent_load_checkpoint=None, 
+#     log_level='info', lr=None, n_px=224, noise='add', num_blocks=5, num_hidden=1024, num_iterations=300000, 
+#     num_points=2025, num_sdf_points=5000, num_views=5, num_workers=4, optimizer='Adam', output_dir='./exps/hello_world', output_type='Implicit', 
+#     pc_dims=1024, post_dataset=None, prefix='a', print_every=50, query_generate_dir='./exps/hello_world/query_generate_dir/', reconstruct_loss_type='sum', sampling_type=None, 
+#     save_every=50, seed=1, seed_nf=1, test_batch_size=32, test_num_sdf_points=30000, text_query=['a truck', 'a round chair', 'a limo'], threshold=0.1, 
+#     train_mode='train', use_timestamp=False, validation_every=5000, vis_gen_dir='./exps/hello_world/vis_gen_dir/', visualization_every=10)

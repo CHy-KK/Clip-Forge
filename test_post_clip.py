@@ -449,6 +449,7 @@ def main():
         if args.text_query is None:
             logging.info("Please add text query using text_query args argument")
         else: 
+            print (args)
             save_voxel_images(net, latent_flow_network, clip_model, args, args.text_query, save_path, resolution=64, num_figs_per_query=1)
         
 if __name__ == "__main__":
